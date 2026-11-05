@@ -124,6 +124,7 @@ import {
   isCredentialOAuthFailure,
   isCredentialOAuthSuccess,
   resolveCredentialOAuthCallbackState,
+  settleCredentialOAuthStart,
 } from './credential-oauth-flow'
 import {
   type CredentialUploadItem,
@@ -1040,6 +1041,7 @@ export function AccountsPanel({
 
   const handleCreateSheetOpenChange = async (open: boolean) => {
     if (!open && uploadInProgress) return
+    if (!open) stopOAuthStatusPolling()
 
     if (!open && reconnectResource) {
       try {
@@ -1320,15 +1322,23 @@ export function AccountsPanel({
 
   const handleStartOAuth = async (provider: CredentialOAuthProvider) => {
     stopOAuthStatusPolling()
+    const generation = oauthPollTokenRef.current
+    const reconnecting = Boolean(reconnectResource)
     try {
       const previous = oauthSessions[provider]
       if (reconnectResource && previous?.state) await workbench.cancelOAuth(previous.state)
-      const result = await workbench.startOAuth({
-        provider,
-        ...(reconnectResource
-          ? { credentialId: reconnectResource.authIndex ?? reconnectResource.id }
-          : {}),
-      })
+      if (generation !== oauthPollTokenRef.current) return
+      const result = await settleCredentialOAuthStart(
+        workbench.startOAuth({
+          provider,
+          ...(reconnectResource
+            ? { credentialId: reconnectResource.authIndex ?? reconnectResource.id }
+            : {}),
+        }),
+        () => generation === oauthPollTokenRef.current,
+        reconnecting ? workbench.cancelOAuth : () => Promise.resolve(),
+      )
+      if (!result) return
       setOAuthSessions((current) => ({ ...current, [provider]: result }))
       setOAuthStatuses((current) => {
         const next = { ...current }

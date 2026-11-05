@@ -1939,6 +1939,13 @@ export const zhCN = {
       },
     },
     credentialsPage: {
+      reconnect: {
+        status: '需要登录',
+        action: '重新连接',
+        title: '重新连接账户',
+        description: '请以 {{email}} 登录。此账户的历史记录、优先级和访问设置将保留。',
+        required: '此账户需要重新登录。请重新连接以恢复访问。',
+      },
       disconnected: {
         title: '连接管理端运行时',
         description: '凭证资源来自 Management API。连接运行时后，才能查看 OAuth 登录和文件凭证。',

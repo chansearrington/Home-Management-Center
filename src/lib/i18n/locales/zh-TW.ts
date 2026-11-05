@@ -1939,6 +1939,13 @@ export const zhTW = {
       },
     },
     credentialsPage: {
+      reconnect: {
+        status: '需要登入',
+        action: '重新連線',
+        title: '重新連線帳戶',
+        description: '請以 {{email}} 登入。此帳戶的歷史記錄、優先順序和存取設定將保留。',
+        required: '此帳戶需要重新登入。請重新連線以恢復存取。',
+      },
       disconnected: {
         title: '連線管理端執行環境',
         description: '憑證資源來自 Management API。連線執行環境後，才能查看 OAuth 登入和檔案憑證。',

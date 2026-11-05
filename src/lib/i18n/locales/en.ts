@@ -2019,6 +2019,14 @@ export const en = {
       },
     },
     credentialsPage: {
+      reconnect: {
+        status: 'Sign-in required',
+        action: 'Reconnect',
+        title: 'Reconnect account',
+        description:
+          'Sign in as {{email}}. Your history, priority, and access settings stay with this account.',
+        required: 'This account needs a new sign-in. Reconnect it to restore access.',
+      },
       disconnected: {
         title: 'Connect a management runtime',
         description:

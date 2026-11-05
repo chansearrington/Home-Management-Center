@@ -4,6 +4,18 @@ export const OAUTH_STATUS_POLL_INTERVAL_MS = 2_000
 export const OAUTH_STATUS_POLL_MAX_ATTEMPTS = 150
 export const OAUTH_STATUS_POLL_MAX_CONSECUTIVE_ERRORS = 3
 
+// A closed or superseded reconnect must cancel even an auth URL that arrived late.
+export async function settleCredentialOAuthStart<T extends { state: string | null }>(
+  start: Promise<T>,
+  isCurrent: () => boolean,
+  cancel: (state: string) => Promise<void>,
+): Promise<T | null> {
+  const result = await start
+  if (isCurrent()) return result
+  if (result.state) await cancel(result.state)
+  return null
+}
+
 export function normalizeCredentialOAuthStatus(status: string | null | undefined) {
   const normalized = status?.trim().toLowerCase()
   return normalized || 'unknown'

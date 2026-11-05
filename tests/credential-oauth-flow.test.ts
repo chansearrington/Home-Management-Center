@@ -5,7 +5,42 @@ import {
   isCredentialOAuthSuccess,
   normalizeCredentialOAuthStatus,
   resolveCredentialOAuthCallbackState,
+  settleCredentialOAuthStart,
 } from '../src/features/credentials/credential-oauth-flow'
+
+test('closing or superseding a pending reconnect cancels its late session instead of publishing it', async () => {
+  let resolveStart!: (value: { state: string; url: string }) => void
+  const start = new Promise<{ state: string; url: string }>((resolve) => {
+    resolveStart = resolve
+  })
+  let current = true
+  const cancelled: string[] = []
+  const pending = settleCredentialOAuthStart(
+    start,
+    () => current,
+    async (state) => {
+      cancelled.push(state)
+    },
+  )
+  current = false
+  resolveStart({ state: 'late-reconnect', url: 'https://provider.test/authorize' })
+  expect(await pending).toBeNull()
+  expect(cancelled).toEqual(['late-reconnect'])
+})
+
+test('a current reconnect is published without cancelling it', async () => {
+  const started = { state: 'current-reconnect', url: 'https://provider.test/authorize' }
+  let cancelled = false
+  const result = await settleCredentialOAuthStart(
+    Promise.resolve(started),
+    () => true,
+    async () => {
+      cancelled = true
+    },
+  )
+  expect(result).toEqual(started)
+  expect(cancelled).toBe(false)
+})
 
 describe('credential OAuth flow helpers', () => {
   test('normalizes backend status values', () => {

@@ -10,6 +10,7 @@ import {
   type CredentialOAuthStartInput,
   type CredentialResource,
   type VertexImportInput,
+  cancelCredentialOAuth,
   clearCredentialCooldown,
   deleteCredentialResource,
   downloadCredentialResource,
@@ -288,6 +289,10 @@ export function useCredentialWorkbench() {
     },
   })
 
+  const cancelOAuthMutation = useMutation({
+    mutationFn: (state: string) => cancelCredentialOAuth(session, state),
+  })
+
   const oauthStatusMutation = useMutation({
     mutationFn: async (state?: string) => {
       try {
@@ -360,6 +365,7 @@ export function useCredentialWorkbench() {
     downloadCredential: downloadMutation.mutateAsync,
     fetchModels: modelsMutation.mutateAsync,
     startOAuth: oauthMutation.mutateAsync,
+    cancelOAuth: cancelOAuthMutation.mutateAsync,
     checkOAuthStatus: oauthStatusMutation.mutateAsync,
     submitOAuthCallback: oauthCallbackMutation.mutateAsync,
     importVertexCredential: vertexImportMutation.mutateAsync,
@@ -378,6 +384,7 @@ export function useCredentialWorkbench() {
       downloadMutation.isPending ||
       modelsMutation.isPending ||
       oauthMutation.isPending ||
+      cancelOAuthMutation.isPending ||
       oauthStatusMutation.isPending ||
       oauthCallbackMutation.isPending ||
       vertexImportMutation.isPending,

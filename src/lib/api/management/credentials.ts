@@ -44,6 +44,7 @@ export type CredentialOAuthCallbackProvider = Exclude<CredentialOAuthProvider, '
 
 export type CredentialOAuthStartInput = {
   provider: CredentialOAuthProvider
+  credentialId?: string
 }
 
 export type CredentialOAuthStatus = {
@@ -84,6 +85,8 @@ export type CredentialResource = {
   status: string
   statusMessage: string | null
   disabled: boolean
+  reconnectSupported?: boolean
+  reauthRequired?: boolean
   unavailable: boolean
   runtimeOnly: boolean
   source: string
@@ -648,6 +651,8 @@ export function normalizeCredentialResource(
     status: readString(record, 'status') ?? 'unknown',
     statusMessage: readString(record, 'status_message'),
     disabled: readBoolean(record, 'disabled'),
+    reconnectSupported: readBoolean(record, 'reconnect_supported'),
+    reauthRequired: readBoolean(record, 'reauth_required'),
     unavailable: readBoolean(record, 'unavailable'),
     runtimeOnly: readBoolean(record, 'runtime_only'),
     source: readString(record, 'source') ?? 'unknown',
@@ -1568,11 +1573,20 @@ export async function startCredentialOAuth(
   input: CredentialOAuthStartInput,
 ): Promise<CredentialOAuthStartResult> {
   const client = createManagementClient(session)
-  const response = await client.get<OAuthUrlResponse>(oauthRoutes[input.provider], {
-    params: {
-      is_webui: true,
+  const response = await client.get<OAuthUrlResponse>(
+    input.credentialId ? '/oauth/auth-url' : oauthRoutes[input.provider],
+    {
+      ...(input.credentialId
+        ? { baseURL: client.defaults.baseURL?.replace('/v0/management', '/v8/management') }
+        : {}),
+      params: {
+        is_webui: true,
+        ...(input.credentialId
+          ? { provider: input.provider, credential_id: input.credentialId }
+          : {}),
+      },
     },
-  })
+  )
 
   if (!response.data.url) {
     throw new Error('OAuth URL was not returned')
@@ -1583,6 +1597,14 @@ export async function startCredentialOAuth(
     url: response.data.url,
     state: response.data.state ?? null,
   }
+}
+
+export async function cancelCredentialOAuth(session: ManagementSessionInput, state: string) {
+  const client = createManagementClient(session)
+  await client.delete('/oauth/session', {
+    baseURL: client.defaults.baseURL?.replace('/v0/management', '/v8/management'),
+    params: { state },
+  })
 }
 
 export async function fetchCredentialOAuthStatus(

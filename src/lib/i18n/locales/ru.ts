@@ -2018,6 +2018,15 @@ export const ru = {
       },
     },
     credentialsPage: {
+      reconnect: {
+        status: 'Требуется вход',
+        action: 'Подключить заново',
+        title: 'Повторное подключение',
+        description:
+          'Войдите как {{email}}. История, приоритет и настройки доступа этого аккаунта сохранятся.',
+        required:
+          'Для этого аккаунта требуется повторный вход. Подключите его заново для восстановления доступа.',
+      },
       disconnected: {
         title: 'Подключите management runtime',
         description:

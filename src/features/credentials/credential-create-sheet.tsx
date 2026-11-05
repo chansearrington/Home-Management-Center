@@ -935,6 +935,7 @@ function CredentialUploadStatusIcon({ item }: { item: CredentialUploadItem }) {
 
 export function CreateCredentialSheet({
   open,
+  reconnectEmail,
   mode,
   fileInputRef,
   oauthProviders,
@@ -957,6 +958,7 @@ export function CreateCredentialSheet({
   onImportVertex,
 }: {
   open: boolean
+  reconnectEmail?: string
   mode: CreateCredentialMode
   fileInputRef: React.RefObject<HTMLInputElement | null>
   oauthProviders: CredentialOAuthProvider[]
@@ -995,30 +997,40 @@ export function CreateCredentialSheet({
       >
         <div className="border-b shadow-[0_1px_0_var(--border)]">
           <SheetHeader className="p-5 pb-3">
-            <SheetTitle>{t('credentialsPage.create.title')}</SheetTitle>
-            <SheetDescription>{t('credentialsPage.create.description')}</SheetDescription>
+            <SheetTitle>
+              {t(
+                reconnectEmail ? 'credentialsPage.reconnect.title' : 'credentialsPage.create.title',
+              )}
+            </SheetTitle>
+            <SheetDescription>
+              {reconnectEmail
+                ? t('credentialsPage.reconnect.description', { email: reconnectEmail })
+                : t('credentialsPage.create.description')}
+            </SheetDescription>
           </SheetHeader>
-          <div className="px-5 pb-5">
-            <ToggleGroup
-              type="single"
-              value={mode}
-              className="grid w-full grid-cols-3"
-              onValueChange={(value) => {
-                if (value) onModeChange(value as CreateCredentialMode)
-              }}
-            >
-              {modes.map((item) => (
-                <ToggleGroupItem
-                  key={item}
-                  value={item}
-                  disabled={uploadInProgress}
-                  className="data-[state=on]:bg-background data-[state=on]:text-foreground min-h-control-lg h-auto px-2 text-center whitespace-normal"
-                >
-                  {t(`credentialsPage.create.modes.${item}`)}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </div>
+          {!reconnectEmail ? (
+            <div className="px-5 pb-5">
+              <ToggleGroup
+                type="single"
+                value={mode}
+                className="grid w-full grid-cols-3"
+                onValueChange={(value) => {
+                  if (value) onModeChange(value as CreateCredentialMode)
+                }}
+              >
+                {modes.map((item) => (
+                  <ToggleGroupItem
+                    key={item}
+                    value={item}
+                    disabled={uploadInProgress}
+                    className="data-[state=on]:bg-background data-[state=on]:text-foreground min-h-control-lg h-auto px-2 text-center whitespace-normal"
+                  >
+                    {t(`credentialsPage.create.modes.${item}`)}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </div>
+          ) : null}
         </div>
 
         <div className="grid min-h-0 min-w-0 flex-1 gap-5 overflow-x-hidden overflow-y-auto px-5 py-5">

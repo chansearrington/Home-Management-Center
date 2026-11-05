@@ -619,13 +619,15 @@ function CredentialList({
                       <CheckCircle2 className="size-3 shrink-0" aria-hidden="true" />
                     )}
                     <span className="truncate">
-                      {resource.disabled
-                        ? t('credentialsPage.status.disabled')
-                        : resource.unavailable
-                          ? t('credentialsPage.status.unavailable')
-                          : t(`credentialsPage.status.${resource.status}`, {
-                              defaultValue: resource.status,
-                            })}
+                      {resource.reauthRequired
+                        ? t('credentialsPage.reconnect.status')
+                        : resource.disabled
+                          ? t('credentialsPage.status.disabled')
+                          : resource.unavailable
+                            ? t('credentialsPage.status.unavailable')
+                            : t(`credentialsPage.status.${resource.status}`, {
+                                defaultValue: resource.status,
+                              })}
                     </span>
                   </span>
                 </div>
@@ -771,6 +773,7 @@ export function AccountsPanel({
   const [oauthSessions, setOAuthSessions] = useState<OAuthSessionMap>({})
   const [oauthStatuses, setOAuthStatuses] = useState<OAuthStatusMap>({})
   const [createSheetOpen, setCreateSheetOpen] = useState(false)
+  const [reconnectResource, setReconnectResource] = useState<CredentialResource | null>(null)
   const [createMode, setCreateMode] = useState<CreateCredentialMode>('oauth')
   const [uploadItems, setUploadItems] = useState<CredentialUploadItem[]>([])
   const [confirmation, setConfirmation] = useState<PendingCredentialConfirmation | null>(null)
@@ -1035,8 +1038,19 @@ export function AccountsPanel({
     )
   }
 
-  const handleCreateSheetOpenChange = (open: boolean) => {
+  const handleCreateSheetOpenChange = async (open: boolean) => {
     if (!open && uploadInProgress) return
+
+    if (!open && reconnectResource) {
+      try {
+        for (const session of Object.values(oauthSessions)) {
+          if (session?.state) await workbench.cancelOAuth(session.state)
+        }
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : String(error))
+        return
+      }
+    }
 
     setCreateSheetOpen(open)
     if (!open) {
@@ -1044,6 +1058,7 @@ export function AccountsPanel({
       stopOAuthStatusPolling()
       setOAuthSessions({})
       setOAuthStatuses({})
+      setReconnectResource(null)
       setUploadItems([])
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
@@ -1258,6 +1273,7 @@ export function AccountsPanel({
       await workbench.refreshCredentials()
       toast.success(t('credentialsPage.toast.oauthCompleted'))
       setCreateSheetOpen(false)
+      setReconnectResource(null)
       setOAuthSessions({})
       setOAuthStatuses({})
     } finally {
@@ -1305,8 +1321,13 @@ export function AccountsPanel({
   const handleStartOAuth = async (provider: CredentialOAuthProvider) => {
     stopOAuthStatusPolling()
     try {
+      const previous = oauthSessions[provider]
+      if (reconnectResource && previous?.state) await workbench.cancelOAuth(previous.state)
       const result = await workbench.startOAuth({
         provider,
+        ...(reconnectResource
+          ? { credentialId: reconnectResource.authIndex ?? reconnectResource.id }
+          : {}),
       })
       setOAuthSessions((current) => ({ ...current, [provider]: result }))
       setOAuthStatuses((current) => {
@@ -1535,6 +1556,14 @@ export function AccountsPanel({
               onToggleStatus={() => handleToggleStatus(selectedResource)}
               onFetchModels={handleFetchModels}
               onDownload={() => handleDownload(selectedResource)}
+              onReconnect={() => {
+                setDetailSheetOpen(false)
+                setReconnectResource(selectedResource)
+                setCreateMode('oauth')
+                setOAuthSessions({})
+                setOAuthStatuses({})
+                setCreateSheetOpen(true)
+              }}
               onDelete={() => {
                 setDetailSheetOpen(false)
                 handleDelete(selectedResource)
@@ -1553,14 +1582,23 @@ export function AccountsPanel({
         open={createSheetOpen}
         mode={createMode}
         fileInputRef={fileInputRef}
-        oauthProviders={workbench.oauthProviders}
+        oauthProviders={
+          reconnectResource
+            ? workbench.oauthProviders.filter((provider) => provider === reconnectResource.provider)
+            : workbench.oauthProviders
+        }
+        reconnectEmail={
+          reconnectResource
+            ? (reconnectResource.email ?? reconnectResource.label ?? reconnectResource.identifier)
+            : undefined
+        }
         oauthSessions={oauthSessions}
         oauthStatuses={oauthStatuses}
         vertexImportResult={workbench.vertexImportResult}
         mutating={workbench.mutating}
         uploadItems={uploadItems}
         uploadInProgress={uploadInProgress}
-        onOpenChange={handleCreateSheetOpenChange}
+        onOpenChange={(open) => void handleCreateSheetOpenChange(open)}
         onModeChange={setCreateMode}
         onUpload={handleUpload}
         onRetryUpload={handleRetryUpload}

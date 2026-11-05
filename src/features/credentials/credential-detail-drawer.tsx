@@ -1299,6 +1299,7 @@ export function CredentialDetailDrawer({
   onFetchModels,
   onDownload,
   onDelete,
+  onReconnect,
 }: {
   resource: CredentialResource
   open: boolean
@@ -1325,6 +1326,7 @@ export function CredentialDetailDrawer({
   onFetchModels: () => Promise<void>
   onDownload: () => Promise<void>
   onDelete: () => void
+  onReconnect?: () => void
 }) {
   const { t } = useTranslation()
   const displayName = getCredentialDisplayName(resource)
@@ -1350,7 +1352,19 @@ export function CredentialDetailDrawer({
       </DrawerScaffoldHeader>
       <DrawerTabStrip activeTab={tab} showConcurrency={showConcurrency} onTabChange={onTabChange} />
       <DrawerScaffoldBody>
-        {tab === 'overview' ? <OverviewTab resource={resource} quotaEntry={quotaEntry} /> : null}
+        {tab === 'overview' ? (
+          <>
+            {resource.reauthRequired ? (
+              <p
+                role="alert"
+                className="border-warning/35 bg-warning/12 rounded-md border p-3 text-sm"
+              >
+                {t('credentialsPage.reconnect.required')}
+              </p>
+            ) : null}
+            <OverviewTab resource={resource} quotaEntry={quotaEntry} />
+          </>
+        ) : null}
         {tab === 'metadata' ? (
           <MetadataTab
             resource={resource}
@@ -1388,6 +1402,12 @@ export function CredentialDetailDrawer({
       </DrawerScaffoldBody>
       {tab === 'overview' ? (
         <DrawerScaffoldFooter>
+          {resource.reconnectSupported && onReconnect ? (
+            <Button variant="outline" disabled={mutating} onClick={onReconnect}>
+              <RefreshCw className="size-4" aria-hidden="true" />
+              {t('credentialsPage.reconnect.action')}
+            </Button>
+          ) : null}
           <Button variant="outline" onClick={() => onTabChange('metadata')}>
             {t('upstreamPage.drawer.actions.editMetadata')}
           </Button>

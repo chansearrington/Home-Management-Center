@@ -1,5 +1,30 @@
 export const ru = {
   common: {
+    dateRangePicker: {
+      dateLabel: 'Диапазон дат',
+      timeLabel: 'Период времени',
+      custom: 'Свой период',
+      presets: 'К готовым периодам',
+      fromDate: 'Дата начала',
+      toDate: 'Дата окончания',
+      fromTime: 'Время начала',
+      toTime: 'Время окончания',
+      selectStart: 'Выберите дату начала',
+      selectEnd: 'Выберите дату окончания',
+      previousMonth: 'Предыдущий месяц',
+      nextMonth: 'Следующий месяц',
+      separator: '–',
+      fromOnly: 'С {{date}}',
+      toOnly: 'До {{date}}',
+      placeholder: 'Выберите период',
+      datePlaceholder: 'YYYY-MM-DD',
+      dateHint: 'Формат: YYYY-MM-DD. Год — четыре цифры от 1970 до 9999.',
+      invalidDate: 'Введите дату от 1970-01-01 до 9999-12-31.',
+      invalidRange: 'Введите корректное время. Конец периода не может быть раньше начала.',
+      timezone: 'Часовой пояс: {{timezone}}',
+      clear: 'Очистить',
+      apply: 'Применить',
+    },
     productShortName: 'Home Center',
     close: 'Закрыть',
     routeLoading: 'Загрузка страницы',
@@ -121,7 +146,7 @@ export const ru = {
       close: 'Закрыть окно подключения',
       baseUrl: 'Management endpoint',
       baseUrlHintDev:
-        'Только dev. Укажите URL backend-сервиса, например http://127.0.0.1:8327. /v0/management добавится автоматически.',
+        'Только dev. Укажите URL backend-сервиса, например http://127.0.0.1:8327. /v8/management добавится автоматически.',
       detectedRuntime: 'Доступный management endpoint обнаружен: {{endpoint}}',
       detectedProxyEndpoint: 'Обнаружен same-origin proxy endpoint: {{endpoint}}',
       managementKey: 'Management key',
@@ -136,6 +161,11 @@ export const ru = {
       connectedAs: 'Подключено к {{mode}}.',
       errors: {
         managementKeyRequired: 'Management key обязателен.',
+        unsupportedApiVersion: {
+          title: 'Неподдерживаемая версия Management API',
+          description:
+            'Этот backend обслуживает только устаревший Management API. Обновите CLIProxyAPIHome до версии с поддержкой V8 Management API и повторите попытку.',
+        },
       },
     },
     embeddedPortal: {
@@ -341,14 +371,14 @@ export const ru = {
         retry: 'Повторить',
       },
       signedOut: {
-        title: 'Цены и доступность видны после входа.',
+        title: 'Войдите, чтобы увидеть модели, доступные вашим ключам.',
         signIn: 'Войти',
         register: 'Создать аккаунт',
       },
       accessibleError: {
         title: 'Не удалось загрузить данные аккаунта',
         description:
-          'Сейчас показан только публичный каталог: без цен, доступности и покрытия ключами. Причина: {{message}}',
+          'Показан публичный каталог. Доступ к моделям для ключей аккаунта пока неизвестен. Причина: {{message}}',
       },
       access: {
         noApiKeys: {
@@ -461,8 +491,7 @@ export const ru = {
         outSuffix: 'выход / за 1 млн токенов',
         tiered: 'Ступеней: {{rungs}}',
         signedOut: 'Цены видны после входа',
-        signedOutDetail:
-          'Этот кластер публикует цены только для вошедших аккаунтов. Войдите, чтобы увидеть полную ценовую лестницу этой модели.',
+        signedOutDetail: 'Войдите, чтобы увидеть полные ценовые ступени для вашего аккаунта.',
         notCovered: 'Ключи не покрывают эту модель',
         notCoveredDetail:
           'Модель не входит в группы, доступные вашим ключам, поэтому для текущего аккаунта применимой цены нет.',
@@ -479,9 +508,26 @@ export const ru = {
         rungFrom: 'От {{tokens}} входных токенов',
         input: 'Вход',
         output: 'Выход',
+        reasoning: 'Рассуждение',
         cacheRead: 'Чтение кеша',
         cacheWrite: 'Запись кеша',
         request: 'За запрос',
+        perCall: '/вызов',
+        toolsDetails: 'Цены инструментов ({{count}})',
+        pricingExpr: 'Формула тарификации:',
+        tools: {
+          webSearch: 'Веб-поиск',
+          webSearchQuery: 'Поисковый запрос',
+          webFetch: 'Загрузка страницы',
+          xSearch: 'Поиск X',
+          codeExecution: 'Выполнение кода',
+          fileSearch: 'Поиск файлов',
+          documentSearch: 'Поиск документов',
+          mcp: 'Инструмент MCP',
+          googleMaps: 'Google Карты',
+          sourcesUsed: 'Источники',
+          serverTools: 'Серверные инструменты',
+        },
       },
       availability: {
         signedOut: 'Наблюдаемая доступность видна после входа',
@@ -766,6 +812,13 @@ export const ru = {
         legacy: 'legacy',
       },
       settings: {
+        modelSource: 'Источник ID модели для биллинга',
+        model_request: 'ID модели запроса',
+        model_response: 'ID модели ответа',
+        modelRequestOptionDescription:
+          'По умолчанию сопоставлять правила цены по ID модели запроса с откатом к response_model.',
+        modelResponseOptionDescription:
+          'Сопоставлять правила цены по response_model ответа с откатом к модели запроса.',
         serviceTierSource: 'Источник tier для биллинга',
         runtimeContextTitle: 'Контекст биллинга во время выполнения',
         globalBadge: 'Глобально',
@@ -774,19 +827,22 @@ export const ru = {
         schemaVersionTechnical: 'Возможность backend для правил цены: Rule schema v{{version}}.',
         currentRuntimeSource: 'Правила цены сейчас используют {{source}}',
         runtimeContextDescription:
-          'Определяет, использовать Tier запроса или ответа для сопоставления правил цены при последующих списаниях.',
+          'Источники ID модели и Tier определяют сопоставление правил цены для новых запросов.',
         configure: 'Настроить сопоставление',
-        dialogTitle: 'Настроить глобальное сопоставление Tier',
+        publicModelPricing: 'Показывать цены в каталоге моделей без входа',
+        publicModelPricingDescription:
+          'Если включено, неавторизованные посетители могут просматривать тарифные сетки, стоимость инструментов и метрики доступности в публичном каталоге моделей.',
+        dialogTitle: 'Настроить сопоставление цен',
         dialogDescription:
-          'Выберите, получать Tier для биллинга из запроса или итогового ответа. Настройка применяется ко всем будущим списаниям.',
+          'Выберите источники ID модели и Tier отдельно. Настройки влияют только на новые списания после сохранения.',
         defaultBadge: 'По умолчанию',
         requestOptionDescription:
           'Использовать Tier клиентского запроса. Стабильно работает с провайдерами, которые не возвращают Tier ответа.',
         responseOptionDescription:
           'Использовать Tier итогового ответа. При его отсутствии применяется Tier запроса, а fallback записывается в снимок цены.',
-        policyTitle: 'Глобальная политика сопоставления Tier',
+        policyTitle: 'Глобальное сопоставление цен',
         policyDescription:
-          'Определяет, использовать Tier запроса или ответа для сопоставления правил цены при последующих списаниях.',
+          'Источники ID модели и Tier определяют сопоставление правил цены для новых запросов.',
         currentValue: 'Текущая политика',
         proposedValue: 'После сохранения:',
         change: 'Изменить',
@@ -800,8 +856,8 @@ export const ru = {
         schemaVersion: 'Схема правил v{{version}}',
         legacyModeHint:
           'Backend поддерживает только плоские цены. Настройки tier, диапазона контекста и источника tier скрыты.',
-        unsupported: 'Backend не предоставляет настройку источника tier для биллинга.',
-        saved: 'Источник tier для биллинга сохранен.',
+        unsupported: 'Этот сервер не предоставляет настройки источников для сопоставления цен.',
+        saved: 'Настройки сопоставления цен сохранены.',
         noResponseTierWarning:
           'В последних {{count}} подходящих запросах нет данных tier ответа. Режим ответа будет всегда откатываться к tier запроса.',
         fallbackSummary:
@@ -864,6 +920,8 @@ export const ru = {
         title: 'Записи списаний',
         empty: 'В выбранном периоде нет записей списаний.',
         tokenSummary: 'Вход {{input}} / Выход {{output}} / Кэш {{cache}}',
+        tokenSummaryCacheSplit:
+          'Вход {{input}} / Выход {{output}} / Кэш R {{cacheRead}} / W {{cacheWrite}}',
         columns: {
           time: 'Время',
           user: 'Пользователь',
@@ -950,7 +1008,7 @@ export const ru = {
         empty: 'Цены моделей пока не настроены.',
         actions: {
           create: 'Новая цена',
-          import: 'Импорт из models.dev',
+          import: 'Импорт цен из каталога',
           refreshSynced: 'Проверить синхронизированные цены',
           createSelected: 'Создать {{count}}',
           selectModels: 'Выберите модели',
@@ -997,10 +1055,10 @@ export const ru = {
           createDescription: 'Создайте правило цены для будущих списаний.',
           importTitle: 'Импорт цен моделей',
           importDescription:
-            'Проверьте совпадения models.dev, поля записи и вручную подтвердите выбранные правила.',
+            'Сопоставьте модели с каталогом цен, проверьте предпросмотр и подтвердите нужные правила.',
           refreshSyncedTitle: 'Обновить синхронизированные цены',
           refreshSyncedDescription:
-            'Загрузите актуальные цены models.dev и проверьте изменения существующих правил source=sync.',
+            'Загрузите цены из выбранного каталога и проверьте изменения существующих правил source=sync.',
           editTitle: 'Изменить цену модели',
           editDescription: 'Обновите правило цены для будущих списаний.',
         },
@@ -1081,8 +1139,8 @@ export const ru = {
           reloadCandidates: 'Перезагрузить кандидатов',
           candidateFailedEmpty:
             'Модели-кандидаты не загружены. Перезагрузите кандидатов или проверьте ответ Management API.',
-          catalogReady: 'Загружено моделей: {{count}} ({{time}}).',
-          catalogFailed: 'Не удалось загрузить каталог models.dev.',
+          catalogReady: '{{source}}: загружено моделей — {{count}} ({{time}}).',
+          catalogFailed: 'Не удалось загрузить каталог цен.',
           serverPreviewBadge: 'Предпросмотр сервера',
           legacyPreviewBadge: 'Режим совместимости',
           serverPreviewFailed: 'Не удалось создать серверный предпросмотр.',
@@ -1129,6 +1187,13 @@ export const ru = {
           targetsTitle: 'Цели импорта',
           targetsHint:
             'Ограничьте модели Home, которые попадут в предпросмотр до сопоставления и расчета цен.',
+          catalogSource: 'Источник цен',
+          catalogSources: {
+            auto: 'Авто (models.dev + OpenRouter + LiteLLM)',
+            openrouter: 'OpenRouter',
+            litellm: 'LiteLLM',
+            modelsDev: 'models.dev',
+          },
           providerFilter: 'Провайдер',
           allProviders: 'Все провайдеры',
           targetFilter: 'Набор целей',
@@ -1155,7 +1220,7 @@ export const ru = {
           aliasRulesTitle: 'Псевдонимы моделей',
           addAlias: 'Добавить псевдоним',
           aliasTarget: 'ID модели Home',
-          aliasSources: 'Предпочтительные ID models.dev через запятую',
+          aliasSources: 'Предпочтительные ID моделей каталога, через запятую',
           removeAlias: 'Удалить псевдоним',
           includeCache: 'Включать цены кэша',
           includeZeroCost: 'Разрешить нулевые официальные цены',
@@ -1171,8 +1236,8 @@ export const ru = {
           selectAll: 'Выбрать все применимые',
           clearSelection: 'Очистить выбор',
           exportPreview: 'Экспорт предпросмотра',
-          searchPlaceholder: 'Провайдер, модель или models.dev',
-          resolveMatchPlaceholder: 'Выберите совпадение models.dev',
+          searchPlaceholder: 'Поиск поставщика, модели или совпадения в каталоге',
+          resolveMatchPlaceholder: 'Выберите модель из каталога',
           applyMatchOverride: 'Пересоздать предпросмотр',
           loadingPreview: 'Загрузка предпросмотра…',
           emptyPreview: 'Нет моделей для предпросмотра.',
@@ -1182,7 +1247,7 @@ export const ru = {
           columns: {
             status: 'Статус',
             action: 'План операции',
-            sourceModel: 'Совпадение models.dev',
+            sourceModel: 'Совпадение в каталоге',
             official: 'Официальные цены входа/выхода',
             multiplier: 'Множитель',
             writeFields: 'Поля записи',
@@ -1543,6 +1608,7 @@ export const ru = {
         claude: 'Claude',
         codex: 'Codex',
         xai: 'xAI',
+        meta: 'Meta',
         vertex: 'Vertex',
         openaiCompatibility: 'OpenAI',
       },
@@ -1632,6 +1698,7 @@ export const ru = {
         claude: 'Claude',
         codex: 'Codex',
         xai: 'xAI',
+        meta: 'Meta',
         vertex: 'Vertex',
         openaiCompatibility: 'OpenAI',
       },
@@ -1684,6 +1751,7 @@ export const ru = {
           kimi: 'Kimi',
           antigravity: 'Antigravity',
           xai: 'xAI',
+          meta: 'Meta',
         },
       },
       status: {
@@ -1705,14 +1773,14 @@ export const ru = {
           'Отключите модельный ключ, чтобы убрать его из upstream request scheduling.',
         fields: {
           identifier: 'Идентификатор',
-          authIndex: 'Auth index',
+          authIndex: 'Индекс учетных данных',
           baseUrl: 'Base URL',
           proxyUrl: 'Proxy URL',
           prefix: 'Prefix',
           models: 'Модели',
           headers: 'Headers',
           excludedModels: 'Исключенные модели',
-          apiKeyEntries: 'API key entries',
+          apiKeyEntries: 'Записи API-ключей',
           priority: 'Приоритет',
           requestRetry: 'Раунды повторов запроса',
           disableCooling: 'Отключить cooling',
@@ -1720,6 +1788,24 @@ export const ru = {
         },
       },
       form: {
+        apiKeyEntryLabel: 'Ключ {{index}}',
+        claudeFingerprintProfileHint:
+          'Оставьте пустым, чтобы использовать профиль вызывающего клиента.',
+        claudeRebuildMidSystemMessageHint: 'Перестраивать сообщения system внутри диалога.',
+        claudeNativeToolSearchHint:
+          'Разрешить нативный поиск инструментов для этого сервера. Требуется глобальная настройка Claude tool-search.',
+        claudeExperimentalCchSigningHint:
+          'Настройка совместимости; для поддерживаемых прямых подключений подпись выполняется автоматически.',
+        modelIsCompatHint: 'Сохранять блоки рассуждений с пустыми подписями.',
+        modelSupportConfigUpdateHint: 'Разрешить Responses configuration_update для этой модели.',
+        modelImageSupportHint: 'Отмечать эту модель как модель изображений в каталоге.',
+        modelUseMaxCompletionTokensHint:
+          'Отправлять серверу max_completion_tokens вместо max_tokens.',
+        modelThinkingEnabled: 'Переопределить возможности рассуждения',
+        modelThinkingHint:
+          'Если выключено, используются настройки сервера. Если включено — только возможности, заданные ниже.',
+        requestScopedErrorAction: 'Действие',
+        requestScopedErrorRegex: 'Регулярные выражения (по одному в строке)',
         createEyebrow: 'Новый модельный ключ',
         editEyebrow: 'Изменить модельный ключ',
         name: 'Имя поставщика моделей',
@@ -1730,8 +1816,10 @@ export const ru = {
         baseUrlRequiredHint:
           'Для Codex, xAI и OpenAI-compatible providers требуется Base URL. Backend игнорирует записи с пустым Base URL.',
         proxyUrl: 'Proxy URL',
+        directProxyAction: 'Указать direct',
         prefix: 'Model prefix',
         priority: 'Приоритет',
+        weight: 'Вес (Weight)',
         requestRetry: 'Раунды повторов запроса',
         requestRetryPlaceholder: 'Оставьте пустым для глобального, 0 для отключения доп. раундов',
         requestRetryHint:
@@ -1740,9 +1828,30 @@ export const ru = {
         disabledHint: 'Отключенная запись не используется для upstream requests.',
         disableCooling: 'Отключить cooling',
         disableCoolingHint: 'Исключает модельный ключ из quota cooldown scheduling.',
+        disableCoolingModeInherit: 'Наследовать глобальный',
+        disableCoolingModeEnabled: 'Включено (отключить cooling)',
+        disableCoolingModeDisabled: 'Выключено (разрешить cooling)',
         websockets: 'Поддержка WebSocket',
         websocketsHint:
-          'Только для Codex и xAI. Использует upstream WebSocket transport для downstream WebSocket requests.',
+          'Для Codex, xAI и Meta. Использует upstream WebSocket transport для downstream WebSocket requests.',
+        codexOptionsSection: 'Параметры Codex',
+        disableCodexCloaking: 'Отключить Codex cloaking',
+        disableCodexCloakingHint: 'Отключает маскировку запросов по умолчанию для Codex.',
+        alphaSearch: 'Alpha Search',
+        alphaSearchHint: 'Включить поддержку Alpha Search для этой записи Codex.',
+        supportPromptCacheKey: 'Поддержка prompt_cache_key',
+        supportPromptCacheKeyHint:
+          'Передавать prompt_cache_key в этот OpenAI-compatible upstream endpoint.',
+        apiKeyEntriesSection: 'Дополнительные ключи API (keys[])',
+        apiKeyEntriesHint:
+          'Настройте несколько upstream-ключей, индивидуальные proxy URL и веса балансировки для этого OpenAI-compatible провайдера.',
+        addApiKeyEntry: 'Добавить ключ',
+        removeApiKeyEntry: 'Удалить ключ',
+        claudeOptionsSection: 'Параметры Claude',
+        claudeRebuildMidSystemMessage: 'Перестраивать промежуточные system-сообщения',
+        claudeNativeToolSearch: 'Нативный Tool Search',
+        claudeExperimentalCchSigning: 'Экспериментальная подпись CCH',
+        claudeFingerprintProfile: 'Профиль отпечатка (Fingerprint Profile)',
         cloakSection: 'Cloak configuration',
         cloakHint: 'Только Claude. Настройка request cloaking и обработки sensitive words.',
         cloakMode: 'Cloak mode',
@@ -1760,10 +1869,33 @@ export const ru = {
         modelDisplayNamePlaceholder: 'Читаемое имя в каталоге моделей',
         modelForceMapping: 'Принудительное отображение response model',
         modelForceMappingHint: 'Переписывает поле модели в upstream response в клиентский alias.',
+        modelAdvancedToggle: 'Расширенные параметры модели',
+        modelMaxContextLength: 'Макс. длина контекста (max-context-length)',
+        modelIsCompat: 'Режим совместимости (is-compat)',
+        modelSupportConfigUpdate:
+          'Поддержка обновления конфигурации (support-configuration-update)',
+        modelUseMaxCompletionTokens: 'Использовать max_completion_tokens',
+        modelInputModalities: 'Входные модальности (через запятую)',
+        modelOutputModalities: 'Выходные модальности (через запятую)',
+        modelThinkingLevels: 'Уровни рассуждения',
+        modelThinkingMin: 'Мин. бюджет Thinking',
+        modelThinkingMax: 'Макс. бюджет Thinking',
+        modelThinkingZeroAllowed: 'Разрешить нулевой Thinking (zero-allowed)',
+        modelThinkingDynamicAllowed: 'Разрешить динамический Thinking (dynamic-allowed)',
+        modelImageSupport: 'Модель изображений',
+        modelImageAspectRatio: 'Разрешить aspect-ratio',
+        modelImageSize: 'Разрешить image-size',
         addModel: 'Добавить модель',
         removeModel: 'Удалить модель',
         excludedModels: 'Исключенные модели',
         excludedModelsHint: 'Один model ID на строку, либо разделяйте model ID запятыми.',
+        requestScopedErrorsSection: 'Правила ошибок на уровне запроса (request-scoped-errors)',
+        requestScopedErrorsHint:
+          'Сопоставляйте HTTP-статус и любую из подстрок или регулярных выражений. Действие определяет повторы и охлаждение.',
+        addRequestScopedError: 'Добавить правило',
+        removeRequestScopedError: 'Удалить правило',
+        requestScopedErrorCode: 'HTTP-код',
+        requestScopedErrorKeywords: 'Подстроки (по одной в строке)',
         headersSection: 'Request Headers',
         headersHint: 'Добавьте upstream request headers для этого модельного ключа.',
         headerName: 'Имя Header',
@@ -1771,15 +1903,24 @@ export const ru = {
         addHeader: 'Добавить Header',
         removeHeader: 'Удалить Header',
         validation: {
+          modelOptionsInvalid:
+            'Длина контекста должна быть положительным целым числом, бюджеты рассуждения — неотрицательными целыми; минимум не должен превышать максимум.',
           nameRequired: 'Введите имя поставщика моделей перед сохранением.',
           apiKeyRequired: 'Введите ключ модельного сервиса перед сохранением.',
           baseUrlRequired:
             'Введите Base URL перед сохранением. Codex, xAI и OpenAI-compatible providers не могут использовать пустой Base URL.',
           modelNameRequired:
             'Введите model ID, если заданы alias, отображаемое имя или принудительное отображение.',
+          modelMaxContextInvalid:
+            'Максимальная длина контекста модели должна быть положительным целым числом.',
+          modelThinkingBudgetInvalid: 'Значения бюджета Thinking должны быть целыми числами.',
           headerNameRequired: 'Введите имя Header, если задано значение Header.',
           requestRetryInvalid:
             'Количество раундов повторов должно быть неотрицательным целым числом.',
+          weightInvalid: 'Вес должен быть целым числом от 0 до 1000000.',
+          proxyUrlInvalid: 'Proxy URL должен быть корректным URL http/https/socks5 или direct.',
+          requestScopedErrorInvalid:
+            'Укажите положительный HTTP-статус и хотя бы одну подстроку или регулярное выражение.',
         },
       },
       discovery: {
@@ -1867,8 +2008,12 @@ export const ru = {
         queued: 'В очередь сбора квоты добавлено учётных данных: {{count}}.',
         updated: 'Обнаружены новые результаты активной проверки, снапшоты квоты обновлены.',
         pending: 'Сбор квоты может продолжаться в фоне; страница будет обновляться автоматически.',
-        notQueued:
-          'Новые задания не добавлены; учётные данные могут не соответствовать условиям, находиться в периоде ожидания либо уже быть в очереди или выполняться.',
+        notQueued: 'Новое задание не добавлено. Читается текущее состояние.',
+        credentialPending:
+          'Новый результат сбора пока недоступен. Страница продолжит периодически обновляться.',
+        credentialPartial:
+          'Квота обновлена, но часть информации получить не удалось. Откройте сведения об учётных данных.',
+        credentialUpdated: 'Квота обновлена.',
         credentialQueued: 'Сбор квоты для {{name}} поставлен в очередь.',
         unavailable:
           'Бэкенд пока не поддерживает запуск сбора квоты; вместо этого снапшоты были перечитаны.',
@@ -1878,37 +2023,191 @@ export const ru = {
         accountsMeta: '{{active}} активных · {{disabled}} отключено · {{unavailable}} недоступно',
         providerKeys: 'Ключи поставщиков',
         attention: 'Требуют внимания',
-        attentionHint: 'Нажмите для фильтра low / exhausted / error',
-        websockets: 'WebSocket вкл.',
-        websocketsHint: 'Codex / Grok',
+        attentionHint: 'Показать учётные данные с квотой, требующей внимания',
+        websockets: 'WebSocket включён',
+        websocketsHint: 'Codex / xAI (Grok)',
         pending: 'Загрузка',
         unsupported: 'Не поддерживается',
       },
       quota: {
+        actions: {
+          collect: 'Собрать квоту',
+          refresh: 'Собрать снова',
+          retry: 'Повторить сбор',
+          collecting: 'Сбор квоты',
+          disabled: 'Включите учётные данные для сбора квоты',
+          unsupported: 'Этот тип учётных данных не поддерживает сбор квоты',
+          unavailable: 'Бэкенд не поддерживает активный сбор',
+        },
+        updatedAt: 'Квота обновлена: {{time}}',
+        metaAuthorizationRequired:
+          'В учётных данных отсутствует информация авторизации для запроса квоты Meta. Повторно импортируйте учётные данные с полной информацией авторизации.',
         notCollected: 'Не собрано',
-        snapshotMiss: 'Вне снапшота',
+        snapshotMiss: 'Не загружено',
         snapshotMissHint:
-          'Снапшот квоты существует, но эта учётная запись не вошла в загруженную страницу, отсортированную по риску.',
-        unsupported: 'Не поддерживается',
+          'Эти учётные данные не входят в загруженный список снапшотов. Откройте сведения о квоте для чтения текущего состояния.',
+        unsupported: 'Запрос не поддерживается',
         unsupportedHint:
           'Сбор квоты недоступен для этого типа учётных данных (обычно для API-ключей поставщика).',
         collectFailed: 'Ошибка сбора',
+        daily: 'Дневной лимит',
+        weekly: 'Неделя',
         monthly: 'Месяц',
         monthlyCredits: 'Месячные кредиты',
         onDemand: 'По требованию',
         onDemandEnabled: 'Включено',
         onDemandUnknown: 'Не предоставлено',
+        onDemandDisabled: 'Отключено',
+        xai: {
+          usageBreakdown: 'Распределение использования (общая квота)',
+          productUsage: 'Использование {{product}}',
+          usageUnavailable: 'Данные об использовании недоступны от xAI',
+          usageSummary: 'По продуктам ({{count}})',
+        },
         remaining: 'Остаток',
         moneyRemaining: '{{remaining}} / {{limit}}',
-        more: 'Ещё {{count}}',
+        summary: {
+          plan: '{{name}} тариф',
+          subscriptionExpiry: 'Окончание подписки',
+          subscriptionExpiresAt: 'Окончание подписки: {{time}}',
+          historical: 'Нужен новый сбор',
+          statusHint:
+            'Состояние учитывает все периоды квоты, включая скрытые в сводке. Оно не подтверждает текущую доступность учётных данных.',
+          viewAll: 'Детали квоты ({{count}} периодов)',
+          viewDetails: 'Подробности',
+          viewAllShort: 'Все {{count}}',
+          viewDetailsShort: 'Детали',
+          windowCount: 'Окон квоты: {{count}}',
+          sharedProducts: 'Общая квота для {{count}} продуктов',
+          updating: 'Сбор данных',
+          partial: 'Неполный сбор',
+          historicalDescription:
+            'Срок актуальности собранных значений истёк. Повторите сбор. Цвет индикаторов по-прежнему отражает остаток квоты на момент наблюдения.',
+          retainedDescription:
+            'Этот запрос не обновил данные. Сохранены последние достоверные значения.',
+          partialDescription:
+            'Часть информации не удалось обновить. Полученные данные квоты доступны; остальные могут относиться к предыдущему наблюдению.',
+          technicalDetails: 'Технические сведения',
+          originalError: 'Исходная ошибка провайдера',
+          errorCode: 'Код ошибки',
+          httpStatus: 'Статус HTTP',
+          requestId: 'ID запроса',
+          errorTime: 'Время ошибки',
+          quotaStatus: 'Последнее состояние квоты',
+          freshness: 'Актуальность данных',
+
+          noData: 'Данных пока нет',
+          unknownHint:
+            'Состояние квоты не подтверждено. Проверьте собранные данные в подробностях.',
+          historicalHint:
+            'Срок актуальности этих значений истёк. Повторите сбор квоты для обновления.',
+          noDataHint:
+            'Достоверных значений квоты пока нет. Состояние сбора доступно в подробностях.',
+          observedAgo: 'Собрано {{time}}',
+          observedAtHint: 'Время сбора: {{time}}',
+          queryScope: 'Это результат запроса квоты, а не результат обращения к модели.',
+          queryIssueHint: 'О запросе квоты',
+          queryIssueLabel: '{{reason}}. Показать пояснение',
+
+          model: 'Модель',
+          scope: 'Группа квот',
+          account: 'Аккаунт',
+          unlimited: 'Без ограничений',
+          periodUnavailable:
+            'Значение квоты {{group}} за {{period}} пока недоступно. Откройте подробности.',
+          nextReset: 'Сброс {{time}}',
+          resetUnconfirmed: 'Время сброса: нет',
+          resetHint: 'Время сброса: {{time}}',
+          pastResetHint: 'Записанное время сброса прошло: {{time}}',
+          validUntil: 'Эти данные были актуальны до {{time}}.',
+
+          detailReadLabel: 'Периоды квоты',
+          detailReadFailed: 'Часть сведений не загружена',
+
+          validUntilLabel: 'Актуальны до',
+
+          labels: 'Метки квоты',
+          queryFailed: 'Ошибка запроса квоты',
+          collectingHint:
+            'Идёт сбор актуальной квоты. Прежние значения сохраняются до получения достоверного результата.',
+          unsupportedHint: 'Этот тип учётных данных не поддерживает запрос квоты.',
+          capabilityAbsentHint: 'Подключённый сервер не предоставляет чтение снимков квоты.',
+          readFailed: 'Ошибка чтения квоты',
+          readFailedHint:
+            'Не удалось прочитать актуальные записи квоты. Синхронизируйте данные или откройте подробности для повтора.',
+          recordMissing: 'Нет записи квоты',
+          recordMissingHint:
+            'В списке нет записи квоты этих учётных данных. Откройте подробности для чтения.',
+          notCollectedHint: 'Данные квоты ещё не собраны. Нажмите «{{action}}» для получения.',
+          resetUnknownHint: 'Время сброса недоступно',
+          observedUnknown: 'Время сбора неизвестно',
+          noCollectionResult: 'Нет результата сбора',
+          notYetCollected: 'Ещё не собрано',
+          noCollectionResultHint: 'Последняя попытка: {{time}}',
+          hiddenRisk: {
+            low: 'Есть другой период с низкой квотой',
+            exhausted: 'Есть другой период с исчерпанной квотой',
+          },
+
+          historicalReadOnlyHint:
+            'Срок актуальности данных истёк. Показаны значения прежнего сбора.',
+          notCollectedReadOnlyHint: 'Достоверных результатов сбора квоты пока нет.',
+        },
+        errors: {
+          authorization: {
+            title: 'Нет доступа к квоте',
+            description:
+              'Авторизация этого запроса квоты не прошла. Проверьте доступ учётных данных к интерфейсу квоты.',
+          },
+          rateLimited: {
+            title: 'Запросы квоты ограничены',
+            description: 'Провайдер ограничил частоту запросов квоты. Повторите сбор позже.',
+          },
+          clientOutdated: {
+            title: 'Для запроса квоты нужно обновление',
+            description:
+              'Сервис требует более новую версию клиента. Обновите сервер Home и повторите сбор квоты.',
+          },
+          invalidResponse: {
+            title: 'Неполный ответ квоты',
+            description: 'Интерфейс квоты не вернул полные пригодные данные. Повторите сбор позже.',
+          },
+          missingAuthorization: {
+            title: 'Нет разрешения на квоту',
+            description:
+              'Этим учётным данным не хватает разрешения на запрос квоты Meta. Проверьте права доступа.',
+          },
+          missingToken: {
+            title: 'Нет данных авторизации для запроса квоты',
+            description:
+              'В учётных данных нет необходимых данных авторизации. Обновите учётные данные и повторите сбор квоты.',
+          },
+          unavailable: {
+            title: 'Квота не прочитана',
+            description:
+              'Не удалось прочитать интерфейс квоты. Проверьте права запроса или состояние провайдера.',
+          },
+          unknown: {
+            title: 'Запрос квоты не удался',
+            description:
+              'Не удалось получить актуальную квоту. Технические сведения доступны в подробностях квоты.',
+          },
+        },
         truncated:
-          'Снапшоты квоты покрывают только первые {{count}} учётных данных по риску; остальные показывают «Не собрано».',
+          'Список квот загружает первые {{count}} учётных данных по риску. Для остальных откройте сведения о квоте.',
         antigravity: {
           gemini: 'Gemini',
           thirdParty: 'Claude + GPT',
           upgrading: 'Квота Antigravity обновляется до сгруппированного формата.',
           legacy:
             'Сохранённая квота Antigravity имеет старый или неизвестный формат. Запустите сбор повторно.',
+        },
+        claude: {
+          resetCreditsUnavailable: 'Число оставшихся сбросов лимитов недоступно в этом наблюдении.',
+          resetCredits: 'Оставшиеся сбросы лимитов',
+          remainingResets: 'Осталось: {{count}}',
+          resetCreditsHint:
+            'Оставшиеся сбросы по данным провайдера, без истёкших и приостановленных. Возможность использовать сброс сейчас зависит от текущих лимитов.',
         },
         codex: {
           resetCredits: 'Кредиты сброса лимита',
@@ -1921,11 +2220,11 @@ export const ru = {
           observedAt: 'Данные на {{time}}',
         },
         status: {
-          healthy: 'Норма',
+          healthy: 'Квота в норме',
           low: 'Низкая квота',
           exhausted: 'Квота исчерпана',
-          unknown: 'Неизвестно',
-          error: 'Ошибка запроса',
+          unknown: 'Квота не подтверждена',
+          error: 'Запрос квоты не удался',
           unsupported: 'Не поддерживается',
         },
         freshness: {
@@ -1979,8 +2278,8 @@ export const ru = {
         noWindows: 'Нет окон квоты',
       },
       quotaChips: {
-        attention: 'Внимание',
-        ws: 'Только WS',
+        attention: 'Только проблемы с квотой',
+        ws: 'Только с включённым WebSocket',
       },
       drawer: {
         tabs: {
@@ -1995,8 +2294,6 @@ export const ru = {
         metadata: {
           priorityPlaceholder: 'например, 10 или -1',
           priorityHint: 'Только целые числа; большее значение повышает приоритет планирования.',
-          websocketsXaiHint: 'Для xAI/Grok. Разрешает этой записи WebSocket-транспорт.',
-          websocketsUnsupported: 'Текущий поставщик не показывает переключатель WS.',
           enableTitle: 'Включить учётные данные',
         },
         danger: {
@@ -2013,7 +2310,8 @@ export const ru = {
           unavailableTitle: 'Детали квоты не поддерживаются',
           unavailableDescription:
             'Management API не предоставляет детали снапшотов квоты; показаны только сводки списка.',
-          readOnlyNote: 'Квота — снапшот только для чтения, не инициирует проверки апстрима.',
+          readOnlyNote:
+            'Просмотр снапшотов не запускает проверки апстрима. Кнопки сбора и обновления запрашивают новую квоту.',
         },
       },
     },
@@ -2055,7 +2353,7 @@ export const ru = {
         status: 'Статус',
         provider: 'Поставщик моделей',
         allProviders: 'Все поставщики моделей',
-        quickFilters: 'Быстрые фильтры',
+        quickFilters: 'Фильтры учётных данных',
         resultCount: 'Показано: {{visible}} из {{total}}',
         clear: 'Сбросить фильтры',
       },
@@ -2193,16 +2491,23 @@ export const ru = {
         provider: 'Поставщик моделей',
         toggleStatus: 'Переключить статус credential {{name}}',
         enabled: 'Включено',
-        ws: 'WS',
+        inFlight: 'В работе',
+        ws: 'WebSocket',
         cooling: 'Расписание охлаждения',
         priority: 'Приоритет',
+        weight: 'Вес',
         actions: 'Действия',
       },
       inline: {
         saved: 'Сохранено.',
-        websocketsLabel: 'Переключить WebSocket',
-        websocketsUnsupported: 'WebSocket не поддерживается для этого поставщика',
-        notApplicable: 'n/a',
+        websocketsLabel: 'Переключить WebSocket для {{name}}',
+        websocketsUnsupported:
+          'Настройка транспорта WebSocket доступна только для учётных данных Codex и xAI (Grok).',
+        websocketsEnabled: 'Включён',
+        websocketsDisabled: 'Выключен',
+        websocketsUnknown: 'Неизвестно',
+        websocketsMissing: 'Сервер не вернул настройку WebSocket для этих учётных данных.',
+        notApplicable: 'Неприменимо',
       },
       bulk: {
         selectAll: 'Выбрать все credentials в текущем списке',
@@ -2227,6 +2532,8 @@ export const ru = {
         enabled: 'Включено',
         disabled: 'Отключено',
         unavailable: 'Недоступно',
+        error: 'Ошибка учётных данных',
+        unknown: 'Статус неизвестен',
         notSet: 'Не задано',
         inherited: 'Наследовать глобальный',
         notAvailable: 'Н/Д',
@@ -2243,12 +2550,12 @@ export const ru = {
           type: 'Тип',
           source: 'Источник',
           account: 'Аккаунт',
-          authIndex: 'Auth index',
+          authIndex: 'Индекс учетных данных',
           path: 'Путь',
           size: 'Размер',
           priority: 'Приоритет',
           requestRetry: 'Раунды повторов запроса',
-          websockets: 'WebSocket',
+          websockets: 'Транспорт WebSocket',
           cooling: 'Расписание охлаждения',
           success: 'Успешно',
           failed: 'Ошибки',
@@ -2261,22 +2568,70 @@ export const ru = {
         },
       },
       form: {
+        proxyInherit: 'Наследовать прокси',
+        metadataLoading: 'Загрузка метаданных учётных данных',
+        headersIncomplete: 'Укажите имя и значение заголовка или удалите строку.',
+        customFieldsInvalid:
+          'Укажите корректный путь через точку. Идентификаторы учётных данных и параметры параллелизма нельзя изменять как метаданные.',
+        customFieldsWarning:
+          'Сохранение поля не гарантирует, что текущий провайдер его использует.',
         prefix: 'Prefix',
         proxyUrl: 'Proxy URL',
+        proxyUrlDirectHint:
+          'Поддерживаются URL http/https/socks5 или direct для прямого подключения в обход глобального прокси.',
+        directProxyAction: 'Указать direct',
         priority: 'Приоритет',
         priorityInvalid: 'Приоритет должен быть целым числом.',
+        weight: 'Вес (Weight)',
+        weightHint:
+          'Весовой коэффициент балансировки среди учетных данных с одинаковым приоритетом (0–1000000, пусто — по умолчанию).',
+        weightInvalid: 'Вес должен быть целым числом от 0 до 1000000.',
         requestRetry: 'Раунды повторов запроса',
         requestRetryPlaceholder: 'Оставьте пустым для глобального, 0 для отключения доп. раундов',
         requestRetryHint:
           'Количество дополнительных раундов повторных попыток после сбоя всех учетных данных в начальном раунде. 0 отключает дополнительные раунды; пустое или отрицательное значение наследует глобальную настройку.',
         requestRetryInvalid:
           'Количество раундов повторов должно быть неотрицательным целым числом.',
-        websockets: 'Поддержка WebSocket',
+        websockets: 'Транспорт WebSocket',
         websocketsHint:
-          'Только для Codex credentials. Включите, если этот credential должен обрабатывать Codex requests с WebSocket.',
+          'Включает или отключает транспорт WebSocket к поставщику. Доступно для Codex и xAI (Grok).',
+        usingApi: 'Использовать официальный API (using_api)',
+        usingApiHint:
+          'Если включено, используется официальный API xAI; если выключено — Grok CLI chat-proxy.',
         coolingSchedule: 'Расписание охлаждения',
         coolingScheduleHint:
-          'При включении эти учётные данные участвуют в расписании охлаждения квот; при выключении исключаются из охлаждения.',
+          'Настройте, участвует ли эта учетная запись в расписании охлаждения квот или наследует глобальную политику.',
+        coolingModeInherit: 'Наследовать глобальную политику',
+        coolingModeEnabled: 'Участвовать в охлаждении (disable_cooling = false)',
+        coolingModeDisabled: 'Отключить охлаждение (disable_cooling = true)',
+        excludedModels: 'Исключенные модели (excluded_models)',
+        excludedModelsPlaceholder: 'По одному model ID на строку или через запятую',
+        excludedModelsHint:
+          'Непустой список заменяет глобальные исключения OAuth. Очистите его, чтобы снова наследовать глобальные правила.',
+        excludedModelsLoading: 'Загрузка моделей...',
+        excludedModelsEmpty: 'Модели не исключены (выберите из списка)',
+        excludedModelsSummary: 'Исключено: {{excluded}} · доступно: {{available}}',
+        excludedModelsRulesSummary: 'Правил исключения: {{count}} (нажмите для загрузки списка)',
+        excludedModelsUnavailable:
+          'Список моделей для исключения недоступен для этих учётных данных. Правила можно изменить вручную ниже. Если используется старая версия Home, обновите её.',
+        excludedModelsSearchPlaceholder: 'Поиск моделей...',
+        excludedModelsSelectAll: 'Выбрать все',
+        excludedModelsClear: 'Очистить',
+        headersSection: 'Пользовательские заголовки (headers)',
+        headersHint: 'HTTP-заголовки, добавляемые к upstream-запросам с этой учетной записью.',
+        addHeader: 'Добавить Header',
+        removeHeader: 'Удалить Header',
+        headerNamePlaceholder: 'Имя Header',
+        headerValuePlaceholder: 'Значение Header',
+        headerNameRequired: 'Введите имя Header, если задано значение Header.',
+        customFieldsSection: 'Дополнительные поля метаданных',
+        customFieldsHint:
+          'Чтение и запись произвольных полей в JSON учетных данных по путям через точку (например custom.flag или nested.config). Поддерживаются JSON-значения и строки.',
+        addCustomField: 'Добавить поле',
+        removeCustomField: 'Удалить поле',
+        customFieldPathPlaceholder: 'Путь поля, напр. custom.field',
+        customFieldValuePlaceholder: 'Значение (JSON или текст)',
+        customFieldKeyRequired: 'Укажите путь поля, если задано значение.',
         note: 'Заметка',
       },
       concurrency: {
@@ -2349,6 +2704,13 @@ export const ru = {
           modelLimit: 'Лимит для {{model}} должен быть неотрицательным целым числом.',
           duplicateModel: 'Модель {{model}} настроена несколько раз.',
         },
+
+        cellUnsupported: 'Не поддерживается',
+        cellLoading: 'Загрузка данных о запросах в работе',
+        cellUnknown: 'Снимок запросов в работе пока отсутствует.',
+        cellUnavailable: 'Не удалось загрузить данные. Откройте подробности и повторите попытку.',
+        cellStale:
+          'Снимок устарел, неполон или не обновлён. Показаны последние известные значения.',
       },
       delete: {
         title: 'Удалить credential?',
@@ -2409,7 +2771,7 @@ export const ru = {
         delete: 'Удалить',
         copy: 'Копировать',
         copyKey: 'Копировать ключ {{key}}',
-        copyIdentifier: 'Копировать идентификатор',
+        copyIdentifier: 'Копировать идентификатор {{identifier}}',
         reveal: 'Показать',
         hide: 'Скрыть',
         generate: 'Сгенерировать ключ',
@@ -2417,15 +2779,13 @@ export const ru = {
       },
       list: {
         title: 'Access keys',
-        description:
-          'Эти ключи дают клиентам доступ к серверу Home Center; это не ключи провайдеров моделей.',
         filterPlaceholder: 'Фильтр keys',
         empty: 'Нет access keys для текущего фильтра.',
-        index: 'N',
         identity: 'Имя / ключ',
-        identifierTooltip:
-          'Отображаемое имя — редактируемая метка, не влияющая на аутентификацию. Стабильный идентификатор (api-key-N) не меняется при переименовании и ротации и связывает один и тот же ключ в использовании, биллинге и записях запросов.',
-        identifierUnavailable: 'Нет стабильного идентификатора',
+        identifier: 'ID ключа',
+        identifierHint:
+          'Идентификатор в записях об использовании и оплате. Не меняется при переименовании или ротации ключа.',
+        key: 'Ключ',
         owner: 'Владелец',
         credentialScope: 'Credential scope',
         modelScope: 'Model scope',
@@ -2454,6 +2814,8 @@ export const ru = {
         noName: 'Без отображаемого имени',
         fields: {
           name: 'Отображаемое имя',
+          identifier: 'Идентификатор ключа',
+          status: 'Статус',
           prefix: 'Prefix',
           suffix: 'Suffix',
           length: 'Длина',
@@ -2683,6 +3045,8 @@ export const ru = {
         keyValue: 'Значение ключа',
         owner: 'Владелец',
         unassigned: 'Не назначен',
+        ownerUnavailableHint:
+          'Пользователь удалён или отсутствует в списке доступных. Можно сохранить другие настройки, оставив прежнего владельца, или выбрать другого пользователя.',
         emptyScopeHint:
           'Если область не выбрана, ключ не добавляет ограничений по учетным данным или моделям.',
         empty: 'Клиентских ключей пока нет.',
@@ -2959,7 +3323,14 @@ export const ru = {
         server: {
           title: 'Runtime сервера',
           shortTitle: 'Сервер',
-          description: 'Базовые переключатели для диагностики runtime и поведения сервиса.',
+          description:
+            'Настройка порта прослушивания, адреса привязки, списка разрешённых хостов, доверенных proxy и коммерческого режима.',
+        },
+        discovery: {
+          title: 'Обнаружение сервиса',
+          shortTitle: 'Discovery',
+          description:
+            'Настройка mDNS broadcast: имя сервиса, тип сервиса, подтипы, диапазон интерфейсов и контроль доступа.',
         },
         tls: {
           title: 'TLS',
@@ -2972,6 +3343,12 @@ export const ru = {
           description:
             'Управление удаленным доступом к Management API, management key и обновлением панели.',
         },
+        userEmail: {
+          title: 'Почта пользователей',
+          shortTitle: 'Почта',
+          description:
+            'Настройка отправки писем подтверждения и восстановления: отправитель, SMTP-подключение и срок действия токенов.',
+        },
         plugins: {
           title: 'Настройки плагинов',
           shortTitle: 'Плагины',
@@ -2982,28 +3359,67 @@ export const ru = {
           title: 'Правила моделей OAuth',
           shortTitle: 'OAuth rules',
           description:
-            'Настройка исключенных моделей и клиентских алиасов для OAuth и file-backed credentials.',
+            'Настройка исключенных моделей, клиентских алиасов и request-scoped правил ошибок для OAuth и file-backed credentials.',
+        },
+        oauthProviders: {
+          title: 'Провайдеры OAuth',
+          shortTitle: 'Провайдеры',
+          description:
+            'Настройка каталога учётных данных OAuth и параметров провайдеров Codex, Antigravity и Devin.',
+        },
+        devin: {
+          title: 'Devin',
+          shortTitle: 'Devin',
+          description:
+            'Настройка правил обфускации чувствительных слов системного промпта для OAuth-провайдера Devin.',
+        },
+        liveMediaRelay: {
+          title: 'Codex · Ретрансляция живого медиа',
+          shortTitle: 'Медиарелей',
+          description:
+            'Настройка ретрансляции живого медиа (аудио/видео) Codex: лимит сессий, публичный IP, диапазон UDP-портов и ICE-серверы.',
         },
         system: {
           title: 'Журналы и usage',
           shortTitle: 'Журналы',
-          description: 'Управление request logs, file logs, usage statistics и хранением журналов.',
+          description:
+            'Управление диагностикой debug, request logs, file logs, usage statistics, хранением журналов, pprof и Redis usage queue.',
         },
         network: {
           title: 'Сетевой proxy',
           shortTitle: 'Сеть',
-          description: 'Настройка outbound proxy для запросов сервера.',
-        },
-        quota: {
-          title: 'Обработка квот',
-          shortTitle: 'Квоты',
-          description: 'Поведение при исчерпании квоты.',
+          description:
+            'Настройка outbound proxy для запросов сервера и passthrough заголовков запросов.',
         },
         streaming: {
           title: 'Повторы и маршрутизация',
           shortTitle: 'Роутинг',
           description:
-            'Управление повторами запросов, совпадением prefix модели и маршрутизацией модельных сервисов.',
+            'Управление повторами запросов, совпадением prefix модели, стратегией маршрутизации, session affinity и транспортным keepalive.',
+        },
+        credentialConcurrency: {
+          title: 'Параллелизм учетных данных',
+          shortTitle: 'Параллелизм',
+          description:
+            'Настройка heartbeat, reclaim и release для CPA. Первые четыре пункта отклоняются backend, пока любой CPA online (active/canceling).',
+        },
+        credentialInFlight: {
+          title: 'Снапшоты in-flight',
+          shortTitle: 'In-flight',
+          description:
+            'Частота наблюдения in-flight запросов и лимиты памяти. stale-after должен быть не меньше 3× snapshot-interval.',
+        },
+        upstream: {
+          title: 'Поведение upstream',
+          shortTitle: 'Upstream',
+          description:
+            'Управление маскировкой запросов, охлаждением и поведением стриминга для upstream Codex, Claude и xAI.',
+        },
+        headers: {
+          title: 'Подмена заголовков',
+          shortTitle: 'Заголовки',
+          description:
+            'Настройка заголовков по умолчанию для запросов к upstream Claude и Codex: подмена идентификаторов клиента и стабилизация профиля устройства.',
         },
         payload: {
           title: 'Перезапись параметров запроса',
@@ -3015,7 +3431,13 @@ export const ru = {
           title: 'Antigravity',
           shortTitle: 'Antigravity',
           description:
-            'Настройка шлюза Antigravity и обфускации чувствительных слов в системных промптах.',
+            'Настройка шлюза Antigravity, обфускации чувствительных слов, credits и пула соединений.',
+        },
+        multimedia: {
+          title: 'Мультимедиа',
+          shortTitle: 'Медиа',
+          description:
+            'Управление обработкой генерации изображений и кэшем авторизации результатов видео.',
         },
       },
       fields: {
@@ -3040,10 +3462,6 @@ export const ru = {
         errorLogsMaxFiles: {
           label: 'Файлы error logs',
           description: 'Ограничение числа сохраняемых файлов error logs.',
-        },
-        usageStatisticsEnabled: {
-          label: 'Статистика usage',
-          description: 'Записывать usage по клиентским ключам и запросам.',
         },
         tlsEnable: {
           label: 'Включить HTTPS',
@@ -3071,15 +3489,6 @@ export const ru = {
         remoteManagementDisableControlPanel: {
           label: 'Отключить control panel',
           description: 'Отключить /management.html и синхронизацию panel.',
-        },
-        remoteManagementDisableAutoUpdatePanel: {
-          label: 'Отключить автообновление panel',
-          description: 'Отключить периодические фоновые обновления panel assets.',
-        },
-        remoteManagementPanelGithubRepository: {
-          label: 'Panel repository URL',
-          description: 'GitHub repository URL или releases API URL для обновления panel assets.',
-          placeholder: 'https://github.com/org/repo',
         },
         proxyUrl: {
           label: 'Outbound proxy URL',
@@ -3136,14 +3545,6 @@ export const ru = {
           label: 'Стратегия маршрутизации',
           description: 'Стратегия выбора при нескольких ключах или учетных данных.',
         },
-        quotaSwitchProject: {
-          label: 'Переключать проект при квоте',
-          description: 'Пробовать другой проект при исчерпании квоты.',
-        },
-        quotaSwitchPreviewModel: {
-          label: 'Переключать preview model при квоте',
-          description: 'Пробовать доступную preview model при исчерпании квоты.',
-        },
         oauthExcludedModelsJson: {
           label: 'Disabled models',
           description:
@@ -3169,11 +3570,523 @@ export const ru = {
             'Вставка символов нулевой ширины в совпадающие системные промпты Antigravity для снижения риска точного сопоставления ключевых слов на стороне upstream.',
           placeholder: 'proxy\nAPI',
         },
+        serverHost: {
+          label: 'Адрес прослушивания',
+          description:
+            'Адрес, к которому привязывается сервер. Пустое значение слушает все интерфейсы.',
+          placeholder: '0.0.0.0',
+        },
+        serverAllowHostJson: {
+          label: 'Разрешенные заголовки Host',
+          description:
+            'По одному разрешенному HTTP Host на строку. Пустой массив означает без ограничений.',
+        },
+        serverTrustedProxiesJson: {
+          label: 'Доверенные proxy',
+          description:
+            'По одному IP или CIDR доверенного proxy на строку. X-Forwarded-For учитывается только от этих proxy.',
+        },
+        serverCommercialMode: {
+          label: 'Коммерческий режим',
+          description: 'Включает ограничения поведения сервера для коммерческих развертываний.',
+        },
+        discoveryEnabled: {
+          label: 'Включить обнаружение сервиса',
+          description:
+            'Транслировать этот экземпляр по mDNS, чтобы узлы CPA в LAN могли его найти.',
+        },
+        discoveryServiceName: {
+          label: 'Имя сервиса',
+          description: 'Имя экземпляра сервиса в mDNS broadcast.',
+          placeholder: 'CLIProxyAPIHome',
+        },
+        discoveryServiceType: {
+          label: 'Тип сервиса',
+          description: 'Тип сервиса mDNS (service type). Обычно оставьте значение по умолчанию.',
+          placeholder: '_cliproxyapi._tcp',
+        },
+        discoverySubtypesJson: {
+          label: 'Подтипы сервиса',
+          description:
+            'По одному дополнительному mDNS subtype на строку для более точной фильтрации обнаружения.',
+        },
+        discoveryInterfacesIncludeJson: {
+          label: 'Включаемые интерфейсы',
+          description:
+            'По одному имени интерфейса на строку; broadcast только на этих интерфейсах. Пустой массив означает без ограничений.',
+        },
+        discoveryInterfacesExcludeJson: {
+          label: 'Исключаемые интерфейсы',
+          description:
+            'По одному имени интерфейса на строку; эти интерфейсы не участвуют в broadcast.',
+        },
+        discoveryAuthRequired: {
+          label: 'Обнаружение требует аутентификации',
+          description: 'Помечать ответы обнаружения как требующие аутентификации для подключения.',
+        },
+        discoveryAdvertiseManagement: {
+          label: 'Анонсировать management',
+          description: 'Включать информацию о доступе к management в broadcast обнаружения.',
+        },
+        managementBaseUrl: {
+          label: 'Base URL панели управления',
+          description:
+            'Внешний URL management, который анонсируется наружу. Пустое значение вычисляется из запроса.',
+          placeholder: 'https://admin.example.com',
+        },
+        userEmailEnabled: {
+          label: 'Включить почту пользователей',
+          description:
+            'Отправлять письма подтверждения и восстановления пароля по настройкам ниже.',
+        },
+        userEmailPublicUrl: {
+          label: 'Публичный URL пользовательского сайта',
+          description: 'Внешний базовый URL для callback-ссылок в письмах.',
+          placeholder: 'https://home.example.com',
+        },
+        userEmailFromAddress: {
+          label: 'Адрес отправителя',
+          description: 'Почтовый адрес отправителя в заголовке From.',
+          placeholder: 'no-reply@example.com',
+        },
+        userEmailFromName: {
+          label: 'Имя отправителя',
+          description: 'Отображаемое имя в заголовке From письма.',
+          placeholder: 'Home Center',
+        },
+        userEmailSmtpHost: {
+          label: 'SMTP хост',
+          description: 'Имя хоста или IP SMTP-сервера.',
+          placeholder: 'smtp.example.com',
+        },
+        userEmailSmtpPort: {
+          label: 'SMTP порт',
+          description:
+            'Порт SMTP-сервера (1–65535). 0 означает «не настроено» и использует политику backend.',
+          placeholder: '465',
+        },
+        userEmailSmtpUsername: {
+          label: 'Имя пользователя SMTP',
+          description: 'Имя пользователя для SMTP auth. Пустое значение отключает аутентификацию.',
+        },
+        userEmailSmtpPasswordEnv: {
+          label: 'Переменная окружения пароля SMTP',
+          description:
+            'Имя переменной окружения с паролем SMTP; сам пароль не записывается в конфиг.',
+          placeholder: 'SMTP_PASSWORD',
+        },
+        userEmailSmtpStarttls: {
+          label: 'Включить STARTTLS',
+          description: 'Обновлять SMTP-подключение шифрованием STARTTLS.',
+        },
+        userEmailVerificationTokenTtl: {
+          label: 'TTL токена подтверждения',
+          description:
+            'Срок действия токена подтверждения email (Go duration). Пустое значение использует значение backend.',
+          placeholder: 'По умолчанию backend',
+        },
+        userEmailResetTokenTtl: {
+          label: 'TTL токена сброса',
+          description:
+            'Срок действия токена сброса пароля (Go duration). Пустое значение использует значение backend.',
+          placeholder: 'По умолчанию backend',
+        },
+        concurrencyCpaHeartbeatTimeout: {
+          label: 'Таймаут heartbeat CPA',
+          description:
+            'Время ожидания, после которого heartbeat CPA считается потерянным (Go duration). Пустое значение восстанавливает значение backend.',
+          placeholder: 'По умолчанию 3s',
+        },
+        concurrencyCpaCancelBound: {
+          label: 'Граница отмены CPA',
+          description:
+            'Максимальное время удержания состояния canceling (Go duration). Пустое значение восстанавливает значение backend.',
+          placeholder: 'По умолчанию 5s',
+        },
+        concurrencyReclaimGrace: {
+          label: 'Льготный период reclaim',
+          description:
+            'Льготное время до reclaim недоступного credential (Go duration). Пустое значение восстанавливает значение backend.',
+          placeholder: 'По умолчанию 5s',
+        },
+        concurrencyCleanupInterval: {
+          label: 'Интервал очистки',
+          description:
+            'Интервал сканирования для очистки состояния параллелизма (Go duration). Пустое значение восстанавливает значение backend.',
+          placeholder: 'По умолчанию 5s',
+        },
+        concurrencyReleaseFlushInterval: {
+          label: 'Интервал сброса release',
+          description:
+            'Интервал пакетной записи release параллелизма (Go duration). Пустое значение восстанавливает значение backend.',
+          placeholder: 'По умолчанию 250ms',
+        },
+        concurrencyReleaseMaxBackoff: {
+          label: 'Максимальный backoff release',
+          description:
+            'Максимальный backoff между неудачными повторами release (Go duration). Пустое значение восстанавливает значение backend.',
+          placeholder: 'По умолчанию 2s',
+        },
+        concurrencyBusyRetryMin: {
+          label: 'Мин. интервал повтора при занятости',
+          description:
+            'Минимальный интервал повтора при конфликте занятости (Go duration). Пустое значение восстанавливает значение backend.',
+          placeholder: 'По умолчанию 250ms',
+        },
+        concurrencyBusyRetryMax: {
+          label: 'Макс. интервал повтора при занятости',
+          description:
+            'Максимальный интервал повтора при конфликте занятости (Go duration). Пустое значение восстанавливает значение backend.',
+          placeholder: 'По умолчанию 1s',
+        },
+        concurrencyMaxLimit: {
+          label: 'Глобальный лимит параллелизма',
+          description: 'Глобальная верхняя граница параллельных занятостей (1–1000000).',
+        },
+        concurrencyLifecycleConfigRevision: {
+          label: 'Ревизия конфигурации жизненного цикла',
+          description:
+            'Ревизия конфигурации жизненного цикла параллелизма, поддерживаемая backend. Только чтение.',
+        },
+        concurrencyObservationBarrierRevision: {
+          label: 'Ревизия барьера наблюдения',
+          description:
+            'Ревизия барьера наблюдения параллелизма, поддерживаемая backend. Только чтение.',
+        },
+        inFlightSnapshotInterval: {
+          label: 'Интервал снапшотов',
+          description:
+            'Интервал сбора снапшотов in-flight запросов (Go duration). Пустое значение восстанавливает значение backend.',
+          placeholder: 'По умолчанию 2s',
+        },
+        inFlightStaleAfter: {
+          label: 'Устаревание снапшота',
+          description:
+            'Записи in-flight, не обновлявшиеся дольше этого срока, считаются устаревшими (Go duration). Должно быть не меньше 3× интервала снапшотов.',
+          placeholder: 'По умолчанию 10s',
+        },
+        inFlightStagingRetention: {
+          label: 'Хранение staging',
+          description:
+            'Срок хранения staging-данных in-flight (Go duration). Пустое значение восстанавливает значение backend.',
+          placeholder: 'По умолчанию 1m',
+        },
+        inFlightMaxPartBytes: {
+          label: 'Макс. байт части',
+          description: 'Максимум байт для одной части снапшота in-flight.',
+        },
+        inFlightMaxPartCount: {
+          label: 'Макс. число частей',
+          description: 'Максимальное число частей в снапшоте in-flight.',
+        },
+        inFlightMaxRevisionBytes: {
+          label: 'Макс. байт ревизии',
+          description: 'Максимум байт для одной ревизии снапшота in-flight.',
+        },
+        inFlightMaxAggregateGroups: {
+          label: 'Макс. групп агрегации',
+          description: 'Максимальное число групп агрегации в снапшотах in-flight.',
+        },
+        inFlightMaxDetails: {
+          label: 'Макс. записей деталей',
+          description: 'Максимальное число записей деталей в снапшотах in-flight.',
+        },
+        inFlightMaxStringBytes: {
+          label: 'Макс. байт строки',
+          description: 'Максимум байт для одного строкового поля в снапшотах in-flight.',
+        },
+        sessionAffinity: {
+          label: 'Session affinity',
+          description: 'По возможности направлять одну и ту же сессию на один и тот же credential.',
+        },
+        sessionAffinityTtl: {
+          label: 'TTL session affinity',
+          description:
+            'Срок действия привязок session affinity (Go duration). Пустое значение восстанавливает значение backend.',
+          placeholder: 'По умолчанию 1h',
+        },
+        sessionAffinitySubagents: {
+          label: 'Session affinity для subagent',
+          description: 'Включать запросы subagent в маршрутизацию session affinity.',
+        },
+        streamingKeepaliveSeconds: {
+          label: 'Интервал keepalive потока (сек)',
+          description:
+            'Интервал отправки keepalive для потоковых ответов в секундах. 0 использует политику backend.',
+        },
+        streamingSendKeepaliveBeforeFt: {
+          label: 'Отправлять keepalive до первого токена',
+          description:
+            'Начинать отправку потоковых keepalive-сигналов клиенту до получения первого токена от upstream.',
+        },
+        streamingBootstrapRetries: {
+          label: 'Повторы запуска потока',
+          description: 'Количество повторов, разрешенных на этапе bootstrap потокового запроса.',
+        },
+        passthroughHeaders: {
+          label: 'Passthrough заголовков клиента',
+          description: 'Пересылать заголовки клиентского запроса на upstream.',
+        },
+        nonstreamKeepaliveInterval: {
+          label: 'Интервал keepalive non-stream (сек)',
+          description:
+            'Интервал keepalive для непотоковых запросов в секундах. 0 использует политику backend.',
+        },
+        pprofEnable: {
+          label: 'Включить pprof',
+          description: 'Открыть endpoint диагностики Go pprof. Включайте только для диагностики.',
+        },
+        pprofAddr: {
+          label: 'Адрес прослушивания pprof',
+          description: 'Адрес прослушивания сервера диагностики pprof.',
+          placeholder: '127.0.0.1:6060',
+        },
+        redisUsageQueueRetentionSeconds: {
+          label: 'Хранение очереди usage Redis (сек)',
+          description: 'Секунды хранения событий usage в очереди Redis (0–3600).',
+        },
+        upstreamCodexDisableCloaking: {
+          label: 'Отключить маскировку Codex',
+          description: 'Не применять клиентскую маскировку к запросам upstream Codex.',
+        },
+        upstreamCodexStreamBootstrapBuffering: {
+          label: 'Буферизация запуска потока Codex',
+          description:
+            'Буферизовать этап bootstrap потоковых ответов Codex, снижая риск обрезанных потоков.',
+        },
+        upstreamCodexStreamBootstrapTimeout: {
+          label: 'Таймаут запуска потока Codex',
+          description:
+            'Максимальное ожидание этапа bootstrap потока Codex (Go duration). 0 означает без ограничений.',
+          placeholder: '0 — без ограничений',
+        },
+        upstreamCodexOrphanDelegationCompatibility: {
+          label: 'Совместимость orphan delegation',
+          description: 'Принимать формы ответов Codex orphan delegation.',
+        },
+        upstreamCodexModelLevelCooling: {
+          label: 'Охлаждение Codex по моделям',
+          description: 'Охлаждать учетные данные Codex независимо для каждой модели.',
+        },
+        upstreamCodexResponseSteering: {
+          label: 'Response steering Codex',
+          description: 'Разрешить steering-директивы для ответов Codex.',
+        },
+        clientCodexOptimizeMultiAgentV2: {
+          label: 'Оптимизация multi-agent V2',
+          description: 'Применять оптимизации V2 к multi-agent запросам Codex со стороны клиента.',
+        },
+        upstreamClaudeModelLevelCooling: {
+          label: 'Охлаждение Claude по моделям',
+          description: 'Охлаждать учетные данные Claude независимо для каждой модели.',
+        },
+        upstreamClaudeToolSearch: {
+          label: 'Поиск инструментов Claude',
+          description: 'Включить возможность tool search на upstream Claude.',
+        },
+        upstreamClaudeDisableCloakMode: {
+          label: 'Отключить cloak mode Claude',
+          description: 'Выключить cloak mode на upstream Claude.',
+        },
+        upstreamClaudeDisableCloakingModelList: {
+          label: 'Отключить список моделей маскировки',
+          description: 'Не отправлять список моделей маскировки на upstream.',
+        },
+        upstreamClaudeHeaderUserAgent: {
+          label: 'Claude User-Agent',
+          description:
+            'Заголовок User-Agent по умолчанию для upstream Claude. Пустое значение использует значение backend.',
+        },
+        upstreamClaudeHeaderPackageVersion: {
+          label: 'Заголовок package-version Claude',
+          description:
+            'Заголовок package-version по умолчанию для upstream Claude. Пустое значение использует значение backend.',
+        },
+        upstreamClaudeHeaderRuntimeVersion: {
+          label: 'Заголовок runtime-version Claude',
+          description:
+            'Заголовок runtime-version по умолчанию для upstream Claude. Пустое значение использует значение backend.',
+        },
+        upstreamClaudeHeaderOs: {
+          label: 'Заголовок os Claude',
+          description:
+            'Заголовок os по умолчанию для upstream Claude. Пустое значение использует значение backend.',
+        },
+        upstreamClaudeHeaderArch: {
+          label: 'Заголовок arch Claude',
+          description:
+            'Заголовок arch по умолчанию для upstream Claude. Пустое значение использует значение backend.',
+        },
+        upstreamClaudeHeaderTimeout: {
+          label: 'Заголовок timeout Claude',
+          description:
+            'Заголовок timeout по умолчанию для upstream Claude. Пустое значение использует значение backend.',
+        },
+        upstreamClaudeHeaderTimezone: {
+          label: 'Заголовок timezone Claude',
+          description:
+            'Заголовок timezone по умолчанию для upstream Claude. Пустое значение использует значение backend.',
+        },
+        upstreamClaudeHeaderStabilizeDeviceProfile: {
+          label: 'Стабилизация профиля устройства',
+          description:
+            'Управляет стабильностью заголовков профиля устройства Claude. «Не задано» использует политику backend.',
+        },
+        upstreamXaiInjectXSearch: {
+          label: 'Внедрение X Search в xAI',
+          description: 'Внедрять возможность X Search в запросы upstream xAI.',
+        },
+        oauthAuthDir: {
+          label: 'Каталог OAuth auth',
+          description: 'Каталог хранения OAuth file credentials.',
+          placeholder: '~/.cli-proxy-api',
+        },
+        oauthCodexHeaderUserAgent: {
+          label: 'Codex User-Agent',
+          description:
+            'Заголовок User-Agent по умолчанию для OAuth upstream Codex. Пустое значение использует значение backend.',
+        },
+        oauthCodexHeaderBetaFeatures: {
+          label: 'Заголовок beta-features Codex',
+          description:
+            'Заголовок beta-features для OAuth upstream Codex. Пустое значение использует значение backend.',
+        },
+        liveMediaRelayEnabled: {
+          label: 'Включить live media relay',
+          description: 'Включить live media (WebRTC) relay Codex.',
+        },
+        liveMediaRelayMaxSessions: {
+          label: 'Макс. сессий relay',
+          description:
+            'Максимум параллельных сессий live media relay. 0 использует значение backend 32.',
+        },
+        liveMediaRelayDisablePrivateRemoteIps: {
+          label: 'Запретить приватные remote IP',
+          description: 'Отклонять приватные remote IP в live media relay.',
+        },
+        liveMediaRelayPublicIp: {
+          label: 'Публичный IP',
+          description:
+            'Публичный IP, анонсируемый relay. Пустое значение определяет его автоматически.',
+        },
+        liveMediaRelayUdpPortMin: {
+          label: 'Нижняя граница UDP-портов',
+          description:
+            'Нижняя граница диапазона UDP-портов relay. Должна настраиваться вместе с верхней границей.',
+        },
+        liveMediaRelayUdpPortMax: {
+          label: 'Верхняя граница UDP-портов',
+          description:
+            'Верхняя граница диапазона UDP-портов relay. Должна настраиваться вместе с нижней границей.',
+        },
+        liveMediaRelayIceServersJson: {
+          label: 'Серверы ICE',
+          description:
+            'JSON-массив серверов STUN/TURN. Внимание: при чтении JSON маскирует username/credential; существующие ключи сохраняются только у записей с неизменными urls. При изменении urls ключи нужно ввести заново.',
+        },
+        devinSensitiveWordsJson: {
+          label: 'Обфускация чувствительных слов Devin',
+          description:
+            'Вставка символов нулевой ширины в совпадающие системные промпты Devin для снижения точного сопоставления ключевых слов на стороне upstream.',
+        },
+        oauthRequestScopedErrorsJson: {
+          label: 'Правила ошибок request-scoped',
+          description:
+            'Правила обработки ошибок, сгруппированные по provider. Каждое правило имеет форму {status, match[], match-regexr[], action}.',
+          placeholder: '{}',
+        },
+        antigravityCredits: {
+          label: 'Antigravity credits',
+          description: 'Включить поведение биллинга Antigravity credits.',
+        },
+        antigravitySignatureCacheEnabled: {
+          label: 'Кэш подписей',
+          description:
+            'Управление кэшированием подписей запросов Antigravity. «Не задано» использует политику backend.',
+        },
+        antigravitySignatureBypassStrict: {
+          label: 'Строгий обход подписи',
+          description:
+            'Управление строгим обходом проверки подписи Antigravity. «Не задано» использует политику backend.',
+        },
+        antigravityConnPoolEnabled: {
+          label: 'Пул соединений',
+          description: 'Использовать постоянный пул соединений для upstream Antigravity.',
+        },
+        antigravityConnPoolIdleTimeout: {
+          label: 'Таймаут простоя пула',
+          description:
+            'Максимальное время хранения простаивающих соединений (Go duration), не более 210s. Пустое значение использует значение backend.',
+          placeholder: 'Не более 210s',
+        },
+        antigravityConnPoolMaxIdleConnsPerHost: {
+          label: 'Макс. простаивающих соединений на хост',
+          description: 'Максимум простаивающих соединений, которые пул хранит для каждого хоста.',
+        },
+        multimediaDisableImageGeneration: {
+          label: 'Режим генерации изображений',
+          description: 'Управляет обработкой запросов генерации изображений.',
+          options: {
+            false: 'Оставить включенной (false)',
+            true: 'Отключена (true)',
+            chat: 'Преобразовать в чат (chat)',
+            passthrough: 'Прямая пересылка (passthrough)',
+          },
+        },
+        multimediaGptImage2BaseModel: {
+          label: 'Базовая модель GPT Image 2',
+          description: 'Базовая модель, используемая для перезаписи генерации изображений.',
+          placeholder: 'По умолчанию gpt-5.4-mini',
+        },
+        multimediaVideoResultAuthCacheTtl: {
+          label: 'TTL кэша авторизации видео',
+          description:
+            'Срок кэширования данных авторизации результатов видео (Go duration). Пустое значение восстанавливает значение backend.',
+          placeholder: 'По умолчанию 3h',
+        },
       },
       routingStrategies: {
         'round-robin': 'Round robin',
+        'weighted-round-robin': 'Weighted round robin',
         'fill-first': 'Fill first',
         unknown: 'Неизвестно',
+      },
+      nullableBoolean: {
+        unset: 'Не задано (по умолчанию)',
+        enabled: 'Включено',
+        disabled: 'Отключено',
+      },
+      stringList: {
+        serverAllowHostJson: {
+          placeholder: 'example.com\nadmin.example.com',
+          hint: 'По одному разрешенному Host на строку. Пустые строки удаляются при сохранении.',
+          count: 'Настроено Host: {{count}}',
+        },
+        serverTrustedProxiesJson: {
+          placeholder: '10.0.0.0/8\n192.168.1.10',
+          hint: 'По одному IP или CIDR proxy на строку. Пустые строки удаляются при сохранении.',
+          count: 'Настроено доверенных proxy: {{count}}',
+        },
+        discoverySubtypesJson: {
+          placeholder: '_home\n_management',
+          hint: 'По одному mDNS subtype на строку. Пустые строки удаляются при сохранении.',
+          count: 'Настроено подтипов: {{count}}',
+        },
+        discoveryInterfacesIncludeJson: {
+          placeholder: 'en0\neth0',
+          hint: 'По одному имени интерфейса на строку. Пустые строки удаляются при сохранении.',
+          count: 'Включено интерфейсов: {{count}}',
+        },
+        discoveryInterfacesExcludeJson: {
+          placeholder: 'utun0\nawdl0',
+          hint: 'По одному имени интерфейса на строку. Пустые строки удаляются при сохранении.',
+          count: 'Исключено интерфейсов: {{count}}',
+        },
+        devinSensitiveWordsJson: {
+          placeholder: 'proxy\nAPI',
+          hint: 'По одному чувствительному слову на строку. Совпадение без учета регистра; пустые строки удаляются при сохранении.',
+          count: 'Настроено чувствительных слов: {{count}}',
+        },
       },
       proxyPools: {
         title: 'Proxy pool',
@@ -3455,6 +4368,7 @@ export const ru = {
           channel: 'Channel',
           name: 'Upstream model',
           alias: 'Client alias',
+          displayName: 'Отображаемое имя',
           fork: 'Fork',
           forceMapping: 'force-mapping',
           actions: 'Действия',
@@ -3463,6 +4377,7 @@ export const ru = {
           channel: 'Auth channel key, например claude, gemini или codex.',
           name: 'Model ID, который фактически отправляется upstream provider.',
           alias: 'Model alias, который может запросить клиент.',
+          displayName: 'Необязательное читаемое имя в каталоге моделей (display-name).',
           fork: 'Advanced option. API определяет это только как fork alias behavior; оставьте выключенным, если не нужно.',
           forceMapping:
             'Если включено, response model field записывается как mapped upstream model name.',
@@ -3471,6 +4386,7 @@ export const ru = {
           channel: 'claude',
           name: 'claude-sonnet-4',
           alias: 'sonnet',
+          displayName: 'Claude Sonnet 4',
         },
       },
       oauthExcluded: {
@@ -3494,6 +4410,7 @@ export const ru = {
           kimi: 'Kimi',
           antigravity: 'Antigravity',
           xai: 'xAI',
+          meta: 'Meta',
         },
       },
       diff: {
@@ -3665,6 +4582,7 @@ export const ru = {
         },
         customFrom: 'Начало',
         customTo: 'Конец',
+        dateRangeInvalid: 'Время начала не должно быть позже времени окончания.',
         eventType: 'Тип события',
         anyEventType: 'Все типы событий',
         anyProvider: 'Все провайдеры',
@@ -3680,7 +4598,6 @@ export const ru = {
           'Диапазон задержки должен содержать неотрицательные целые числа, а минимум не должен превышать максимум.',
         sort: 'Сортировка',
         advanced: 'Расширенные фильтры',
-        hideAdvanced: 'Скрыть расширенные фильтры',
         ranges: {
           '4h': 'Последние 4 часа',
           '12h': 'Последние 12 часов',
@@ -3715,6 +4632,8 @@ export const ru = {
         unknown: 'Неизвестно',
         unknownRequest: 'Неизвестный запрос',
         localHome: 'Локальный Home',
+        streaming: 'Поток',
+        nonStreaming: 'Без потока',
         yes: 'Да',
         no: 'Нет',
       },
@@ -3741,10 +4660,11 @@ export const ru = {
           model: 'Модель',
           runtime: 'Узел Home',
           client: 'Пользователь',
+          userAgent: 'User-Agent',
           credential: 'Учетные данные',
           tokens: 'Токены',
           latency: 'Задержка',
-          cost: 'Стоимость',
+          cost: 'Стоимость (credits)',
           request: 'Request ID',
           error: 'Ошибка',
           actions: 'Действия',
@@ -3756,6 +4676,7 @@ export const ru = {
         errorTitle: 'Не удалось загрузить детали запроса',
         requestLogUnavailable: 'У этого запроса нет скачиваемого журнала.',
         tokens: 'Токены',
+        toolUsage: 'Использование инструментов',
         error: 'Сводка ошибки',
         payload: 'Сводка payload',
         logExcerpt: 'Фрагмент журнала',
@@ -3776,6 +4697,7 @@ export const ru = {
           cpa: 'CPA-узел',
           user: 'Пользователь',
           clientKey: 'Клиентский ключ доступа',
+          userAgent: 'User-Agent',
           credential: 'Учетные данные',
           latency: 'Задержка',
           cost: 'Стоимость',
@@ -3788,6 +4710,56 @@ export const ru = {
           cacheReadTokens: 'Чтение кэша',
           cacheCreationTokens: 'Запись кэша',
           totalTokens: 'Всего',
+        },
+        costBreakdown: {
+          total: 'Итого списано',
+          input: 'Входные токены',
+          imageInput: 'Вход изображений',
+          audioInput: 'Аудиовход',
+          videoInput: 'Видеовход',
+          fileInput: 'Вход файлов',
+          cacheRead: 'Чтение кэша',
+          cachedText: 'Кэш текста',
+          imageCacheRead: 'Кэш изображений',
+          audioCacheRead: 'Аудиокэш',
+          cacheWrite: 'Запись кэша',
+          cacheWrite30m: 'Запись кэша (30m)',
+          cacheWrite1h: 'Запись кэша (1h)',
+          cacheWrite12h: 'Запись кэша (12h)',
+          output: 'Выходные токены',
+          reasoning: 'Токены рассуждений',
+          imageOutput: 'Выход изображений',
+          audioOutput: 'Аудиовыход',
+          videoOutput: 'Видеовыход',
+          webSearch: 'Веб-поиск',
+          webSearchQuery: 'Поисковые запросы',
+          webFetch: 'Загрузка страниц',
+          xSearch: 'Поиск X',
+          codeExecution: 'Выполнение кода',
+          fileSearch: 'Поиск файлов',
+          documentSearch: 'Поиск документов',
+          mcp: 'Инструмент MCP',
+          googleMaps: 'Google Карты',
+          sourcesUsed: 'Источники',
+          serverTools: 'Серверные инструменты',
+          images: 'Изображения',
+          requestFee: 'Плата за запрос',
+          effortMultiplier: 'Множитель рассуждений',
+          billingMultiplier: 'Множитель пользователя',
+          matchedRule: 'Правило цены',
+        },
+        toolFields: {
+          webSearchCalls: 'Веб-поиск',
+          webSearchQueries: 'Поисковые запросы',
+          webFetchCalls: 'Загрузка страниц',
+          xSearchCalls: 'Поиск X',
+          codeExecutionCalls: 'Выполнение кода',
+          fileSearchCalls: 'Поиск файлов',
+          documentSearchCalls: 'Поиск документов',
+          mcpCalls: 'Инструмент MCP',
+          googleMapsChunks: 'Google Карты',
+          numSourcesUsed: 'Источники',
+          imageGenerationCalls: 'Генерация изображений',
         },
         payloadFields: {
           method: 'Метод',
@@ -3987,7 +4959,6 @@ export const ru = {
         minAmount: 'Мин. расход',
         maxAmount: 'Макс. расход',
         advanced: 'Расширенные фильтры',
-        hideAdvanced: 'Скрыть расширенные фильтры',
         searchPlaceholder: 'Запрос / пользователь / модель',
         minLatencyPlaceholder: 'Мин. задержка ms',
         maxLatencyPlaceholder: 'Макс. задержка ms',
@@ -3996,6 +4967,7 @@ export const ru = {
         rangeInvalid: 'Минимум не должен превышать максимум.',
         customFrom: 'Дата начала',
         customTo: 'Дата окончания',
+        dateRangeInvalid: 'Дата начала не должна быть позже даты окончания.',
         anyProvider: 'Все провайдеры',
         anyModel: 'Все модели',
         anyCredentialType: 'Все типы учетных данных',
@@ -4257,7 +5229,7 @@ export const ru = {
           clientKey: 'Клиентский ключ',
           clientIp: 'IP клиента',
           credential: 'Исполнительные учетные данные',
-          authIndex: 'Auth Index',
+          authIndex: 'Индекс учетных данных',
           model: 'Модель',
           endpoint: 'Endpoint',
           latency: 'Задержка',
@@ -4428,6 +5400,8 @@ export const ru = {
         emptyPage: 'Вернитесь назад или синхронизируйте данные.',
         latest: 'Последняя запись: {{time}}',
         latestUnavailable: 'Время записи недоступно',
+        searchUnsupported:
+          'Этот backend не поддерживает поиск по содержимому журналов, поэтому фильтр поиска не был применён. Обновите CLIProxyAPIHome и повторите попытку.',
         columns: {
           time: 'Время',
           level: 'Уровень',
@@ -4452,6 +5426,7 @@ export const ru = {
             requestId: 'Request ID',
             homeIp: 'Home IP',
             clientIp: 'Client IP',
+            search: 'Содержимое',
           },
           levels: {
             all: 'Все уровни',
@@ -4465,8 +5440,12 @@ export const ru = {
         pagination: {
           range: '{{start}}-{{end}} из {{total}}',
           pageSize: 'Строк на странице',
+          first: 'В начало',
           previous: 'Назад',
           next: 'Вперед',
+          pageIndicator: 'Стр. {{page}} из {{pages}}',
+          jumpInput: 'Номер страницы',
+          jump: 'Перейти',
         },
         detail: {
           title: 'Детали журнала',
@@ -4757,10 +5736,38 @@ export const ru = {
         syncing: 'Синхронизация',
         clearFilters: 'Сбросить фильтры',
         details: 'Детали',
+        configure: 'Настроить плагин',
         install: 'Установить',
         update: 'Обновить',
         uninstall: 'Удалить',
         manageAuth: 'Аутентификация',
+      },
+      config: {
+        loading: 'Загрузка конфигурации плагина',
+        useDefault: 'Использовать значение плагина по умолчанию',
+        save: 'Сохранить изменения',
+        title: 'Настройка {{name}}',
+        enabledLabel: 'Включить плагин',
+        enabledDescription: 'Управляет тем, активен ли плагин во время выполнения.',
+        priorityLabel: 'Приоритет (priority)',
+        priorityDescription: 'Целое число, определяющее порядок выполнения между плагинами.',
+        loadInHomeLabel: 'Загружать в процессе Home (load-in-home)',
+        loadInHomeDescription: 'Разрешает загрузку этого плагина внутри процесса управления Home.',
+        declaredFieldsTitle: 'Объявленные параметры плагина',
+        customParamsTitle: 'Пользовательские параметры',
+        customParamsDescription:
+          'Дополнительные параметры плагина. Значения поддерживают JSON; заключайте строки вроде "123" в кавычки, чтобы сохранить тип.',
+        addParam: 'Добавить параметр',
+        removeParam: 'Удалить параметр',
+        paramValuePlaceholder: 'Значение (JSON или текст)',
+        saved: 'Конфигурация {{name}} сохранена',
+        validation: {
+          duplicateKey: 'Параметр {{name}} уже задан.',
+          priorityInvalid: 'Приоритет должен быть целым числом.',
+          paramInvalid: 'Некорректное значение параметра {{name}}.',
+          keyRequired: 'Укажите ключ параметра, если задано значение.',
+          reservedKey: '{{name}} — зарезервированное поле; используйте переключатели выше.',
+        },
       },
       auth: {
         title: 'Аутентификация магазина',

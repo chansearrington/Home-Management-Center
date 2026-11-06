@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import type { i18n as I18nInstance, TFunction } from 'i18next'
 import {
@@ -10,8 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
-  ChevronsDown,
-  ChevronsUp,
+  ChevronsLeft,
   ChevronsUpDown,
   CircleDollarSign,
   CirclePile,
@@ -41,15 +40,18 @@ import {
   usePlotArea,
 } from 'recharts'
 
+import { AdvancedFiltersToggle } from '@/components/shared/advanced-filters-toggle'
 import { DateTimeRangePicker } from '@/components/shared/date-time-range-picker'
 import { DebouncedFilterInput } from '@/components/shared/debounced-filter-input'
 import { DiagnosticDetailField, TechnicalTextViewer } from '@/components/shared/diagnostic-detail'
 import { TableEmptyState } from '@/components/shared/empty-state'
 import { EmptyValue, emptyValueText } from '@/components/shared/empty-value'
 import {
+  filterActionsClassName,
   filterGridClassName,
   formGridClassName,
   narrowFilterGridClassName,
+  narrowFilterGridWithActionsClassName,
 } from '@/components/shared/form-layout'
 import { PageHeader } from '@/components/shared/page-header'
 import { ProviderLogo, resolveProviderLogoId } from '@/components/shared/provider-logo'
@@ -57,10 +59,10 @@ import { RowActions } from '@/components/shared/row-actions'
 import { SelectInputGroup } from '@/components/shared/select-input-group'
 import { useSecondaryColumns } from '@/components/shared/table-columns'
 import {
+  ContainedTable,
   TablePaginationStatus,
   TableSurface,
   TableSurfaceContent,
-  containedTableContainerClassName,
   stickyTableHeaderClassName,
 } from '@/components/shared/table-surface'
 import {
@@ -94,14 +96,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import type { LiveRefreshPauseReason } from '@/features/observability/live-refresh'
 import {
@@ -111,6 +106,7 @@ import {
 } from '@/features/observability/live-refresh-control'
 import { useLocalStoragePreference } from '@/hooks/use-local-storage-preference'
 import { usePersistentColumnVisibility } from '@/hooks/use-persistent-column-visibility'
+import { useScrollDock } from '@/hooks/use-scroll-dock'
 import { defaultRuntimeLogFilters, defaultUsageFilters } from '@/lib/api/management/usage-logs'
 import type {
   RequestErrorLogFile,
@@ -140,6 +136,7 @@ import type {
   UsageRecordSortableField,
   UsageRecordsPage,
   UsageTokenBreakdown,
+  UsageTokens,
 } from '@/lib/api/management/usage-logs'
 import { formatCreditAmount, formatUsageAmount } from '@/lib/billing/amount-format'
 import { formatCompactNumber, formatNumber, getNumberLocale } from '@/lib/number-format'
@@ -301,6 +298,38 @@ function getRuntimeLogLevel(record: RuntimeLogRecord) {
 }
 
 export { downloadBlob } from '@/lib/download'
+
+export function scrollRuntimeLogContainerToBottom(
+  container: Pick<HTMLElement, 'scrollTop' | 'scrollHeight'> | null,
+) {
+  if (!container) return
+  container.scrollTop = container.scrollHeight
+}
+
+export function isRuntimeLogScrollNearBottom(
+  container: Pick<HTMLElement, 'scrollTop' | 'scrollHeight' | 'clientHeight'> | null,
+  threshold = 24,
+) {
+  if (!container) return true
+  return container.scrollHeight - container.scrollTop - container.clientHeight <= threshold
+}
+
+export function isRuntimeLogScrollNearTop(
+  container: Pick<HTMLElement, 'scrollTop'> | null,
+  threshold = 24,
+) {
+  if (!container) return false
+  return container.scrollTop <= threshold
+}
+
+export function restoreRuntimeLogPrependScroll(
+  container: Pick<HTMLElement, 'scrollTop' | 'scrollHeight'> | null,
+  previous: { scrollHeight: number; scrollTop: number } | null,
+) {
+  if (!container || !previous) return
+  container.scrollTop =
+    previous.scrollTop + Math.max(0, container.scrollHeight - previous.scrollHeight)
+}
 
 export function isFileLoggingDisabledError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error)
@@ -483,8 +512,13 @@ const runtimeLogLevelOptions: RuntimeLogLevelFilter[] = [
   'warn',
   'error',
 ]
-type RuntimeLogSearchField = 'homeIp' | 'clientIp' | 'requestId'
-const runtimeLogSearchFieldOptions: RuntimeLogSearchField[] = ['requestId', 'homeIp', 'clientIp']
+type RuntimeLogSearchField = 'homeIp' | 'clientIp' | 'requestId' | 'search'
+const runtimeLogSearchFieldOptions: RuntimeLogSearchField[] = [
+  'requestId',
+  'homeIp',
+  'clientIp',
+  'search',
+]
 const defaultRuntimeLogSearchField: RuntimeLogSearchField = 'requestId'
 const requestRecordScopedFilterKeys: Array<keyof UsageFilters> = [
   'status',
@@ -563,58 +597,31 @@ export function UsageFiltersToolbar({
   const credentialTypes = appendSelectedOption(options.credentialTypes, filters.credentialType)
   const homeIps = appendSelectedOption(options.homeIps, filters.homeIp)
   const endpoints = appendSelectedOption(options.endpoints, filters.endpoint)
-  const getDefaultCustomRange = () => {
-    const to = new Date()
-    const from = new Date(to)
-    from.setDate(to.getDate() - 6)
-    const formatDateInput = (date: Date) => {
-      const year = date.getFullYear()
-      const month = String(date.getMonth() + 1).padStart(2, '0')
-      const day = String(date.getDate()).padStart(2, '0')
-      return `${year}-${month}-${day}`
-    }
-
-    return {
-      customFrom: formatDateInput(from),
-      customTo: formatDateInput(to),
-    }
-  }
-
-  const handleRangeChange = (range: UsageFilters['range']) => {
-    if (range === 'custom' && !filters.customFrom && !filters.customTo) {
-      onChange({ range, ...getDefaultCustomRange() })
-      return
-    }
-
-    onChange({ range })
-  }
-
   return (
     <Collapsible
       open={advancedOpen}
       onOpenChange={setAdvancedOpen}
       className="bg-card rounded-lg border p-3 shadow-sm"
     >
-      <div className={narrowFilterGridClassName}>
-        <Select
-          value={filters.range}
-          onValueChange={(range) => handleRangeChange(range as UsageFilters['range'])}
-        >
-          <SelectTrigger size="md" aria-label={t('usageLogsPage.filters.range')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="4h">{t('usageLogsPage.filters.ranges.last4h')}</SelectItem>
-            <SelectItem value="12h">{t('usageLogsPage.filters.ranges.last12h')}</SelectItem>
-            <SelectItem value="24h">{t('usageLogsPage.filters.ranges.last24h')}</SelectItem>
-            <SelectItem value="today">{t('usageLogsPage.filters.ranges.today')}</SelectItem>
-            <SelectItem value="yesterday">{t('usageLogsPage.filters.ranges.yesterday')}</SelectItem>
-            <SelectItem value="7d">{t('usageLogsPage.filters.ranges.last7d')}</SelectItem>
-            <SelectItem value="30d">{t('usageLogsPage.filters.ranges.last30d')}</SelectItem>
-            <SelectItem value="90d">{t('usageLogsPage.filters.ranges.last90d')}</SelectItem>
-            <SelectItem value="custom">{t('usageLogsPage.filters.ranges.custom')}</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className={narrowFilterGridWithActionsClassName}>
+        <DateTimeRangePicker
+          precision="date"
+          from={filters.customFrom}
+          to={filters.customTo}
+          preset={filters.range}
+          presets={[
+            { value: '4h', label: t('usageLogsPage.filters.ranges.last4h') },
+            { value: '12h', label: t('usageLogsPage.filters.ranges.last12h') },
+            { value: '24h', label: t('usageLogsPage.filters.ranges.last24h') },
+            { value: 'today', label: t('usageLogsPage.filters.ranges.today') },
+            { value: 'yesterday', label: t('usageLogsPage.filters.ranges.yesterday') },
+            { value: '7d', label: t('usageLogsPage.filters.ranges.last7d') },
+            { value: '30d', label: t('usageLogsPage.filters.ranges.last30d') },
+            { value: '90d', label: t('usageLogsPage.filters.ranges.last90d') },
+          ]}
+          onPresetChange={(range) => onChange({ range })}
+          onChange={({ from, to }) => onChange({ range: 'custom', customFrom: from, customTo: to })}
+        />
         <Select value={filters.provider} onValueChange={(provider) => onChange({ provider })}>
           <SelectTrigger size="md" aria-label={t('usageLogsPage.filters.provider')}>
             <SelectValue />
@@ -641,29 +648,15 @@ export function UsageFiltersToolbar({
             ))}
           </SelectContent>
         </Select>
-      </div>
-      {filters.range === 'custom' ? (
-        <div className={cn(narrowFilterGridClassName, 'mt-3 border-t pt-3')}>
-          <label className="grid gap-1.5 text-xs font-medium">
-            <span className="text-muted-foreground">{t('usageLogsPage.filters.customFrom')}</span>
-            <Input
-              size="md"
-              type="date"
-              value={filters.customFrom}
-              onChange={(event) => onChange({ customFrom: event.target.value })}
+        <div className={filterActionsClassName}>
+          <CollapsibleTrigger asChild>
+            <AdvancedFiltersToggle
+              open={advancedOpen}
+              label={t('usageLogsPage.filters.advanced')}
             />
-          </label>
-          <label className="grid gap-1.5 text-xs font-medium">
-            <span className="text-muted-foreground">{t('usageLogsPage.filters.customTo')}</span>
-            <Input
-              size="md"
-              type="date"
-              value={filters.customTo}
-              onChange={(event) => onChange({ customTo: event.target.value })}
-            />
-          </label>
+          </CollapsibleTrigger>
         </div>
-      ) : null}
+      </div>
       <CollapsibleContent>
         <div className={cn(narrowFilterGridClassName, 'mt-3 border-t pt-3')}>
           <Select
@@ -712,28 +705,6 @@ export function UsageFiltersToolbar({
           </Select>
         </div>
       </CollapsibleContent>
-      <CollapsibleTrigger asChild>
-        <button
-          type="button"
-          className="control-bordered border-border/80 bg-muted/20 text-muted-foreground hover:text-foreground focus-visible:ring-ring mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-dashed text-xs font-medium focus-visible:ring-2 focus-visible:outline-none sm:h-9 sm:min-h-9"
-          aria-label={
-            advancedOpen
-              ? t('usageLogsPage.filters.hideAdvanced')
-              : t('usageLogsPage.filters.advanced')
-          }
-        >
-          <span>
-            {advancedOpen
-              ? t('usageLogsPage.filters.hideAdvanced')
-              : t('usageLogsPage.filters.advanced')}
-          </span>
-          {advancedOpen ? (
-            <ChevronsUp className="text-primary size-5 stroke-[2.4]" aria-hidden="true" />
-          ) : (
-            <ChevronsDown className="text-primary size-5 stroke-[2.4]" aria-hidden="true" />
-          )}
-        </button>
-      </CollapsibleTrigger>
     </Collapsible>
   )
 }
@@ -2362,8 +2333,8 @@ export function RankingGrid({
                   ))}
                 </div>
               ) : aggregate && aggregate.items.length > 0 ? (
-                <Table
-                  containerClassName="max-h-[min(640px,calc(100vh-260px))] overflow-auto rounded-md border"
+                <ContainedTable
+                  containerClassName="max-h-[min(640px,calc(100vh-260px))] rounded-md border"
                   className="table-fixed"
                   style={{ minWidth: visibleRankingTableWidth }}
                 >
@@ -2425,7 +2396,7 @@ export function RankingGrid({
                       </TableRow>
                     ))}
                   </TableBody>
-                </Table>
+                </ContainedTable>
               ) : (
                 <p className="text-muted-foreground rounded-md border px-3 py-8 text-sm">
                   {t('usageLogsPage.rankings.empty')}
@@ -2576,7 +2547,7 @@ const usageRecordColumns: Array<{
    */
   compact?: boolean
 }> = [
-  { key: 'time', width: 156, required: true, compact: true },
+  { key: 'time', width: 216, required: true, compact: true },
   { key: 'status', width: 116, required: true, compact: true },
   { key: 'model', width: 230, required: true },
   { key: 'client', width: 210 },
@@ -3013,11 +2984,8 @@ export function RequestRecordsTable({
       {records ? (
         rows.length > 0 ? (
           <div className="px-3 py-3">
-            <Table
-              containerClassName={cn(
-                containedTableContainerClassName,
-                'max-h-[min(660px,calc(100vh-260px))] rounded-md border',
-              )}
+            <ContainedTable
+              containerClassName="max-h-[min(660px,calc(100vh-260px))] rounded-md border"
               className="table-fixed"
               style={showSecondary ? { minWidth: visibleTableWidth } : undefined}
             >
@@ -3043,7 +3011,7 @@ export function RequestRecordsTable({
                 {rows.map((record) => (
                   <TableRow key={record.id} variant="resource">
                     {isColumnRendered('time') ? (
-                      <TableCell className="text-muted-foreground truncate">
+                      <TableCell className="text-muted-foreground truncate tabular-nums">
                         {formatDateTime(record.timestamp, i18n) ?? record.timestamp}
                       </TableCell>
                     ) : null}
@@ -3145,7 +3113,7 @@ export function RequestRecordsTable({
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+            </ContainedTable>
           </div>
         ) : (
           <TableEmptyState
@@ -3420,14 +3388,11 @@ export function RequestLogIndexTable({
       </div>
       {totalRows > 0 ? (
         <TableSurfaceContent>
-          <Table
-            containerClassName={cn(containedTableContainerClassName, 'rounded-md border')}
-            className="min-w-[1080px]"
-          >
+          <ContainedTable containerClassName="rounded-md border" className="min-w-[1080px]">
             <TableHeader className={stickyTableHeaderClassName}>
               <TableRow variant="static">
                 <TableHead
-                  className="w-[170px]"
+                  className="w-[216px]"
                   aria-sort={
                     sort.key === 'time'
                       ? sort.direction === 'asc'
@@ -3489,7 +3454,7 @@ export function RequestLogIndexTable({
 
                 return (
                   <TableRow key={row.id} variant="resource" className="group">
-                    <TableCell className="text-muted-foreground truncate">
+                    <TableCell className="text-muted-foreground truncate tabular-nums">
                       {formatDateTime(row.timestamp, i18n) ?? <EmptyValue />}
                     </TableCell>
                     <TableCell className="min-w-0">
@@ -3558,7 +3523,7 @@ export function RequestLogIndexTable({
                 )
               })}
             </TableBody>
-          </Table>
+          </ContainedTable>
         </TableSurfaceContent>
       ) : (
         <TableEmptyState
@@ -3754,17 +3719,23 @@ function QuotaWindowProgress({ window }: { window: UsageQuotaWindow }) {
   )
 }
 
-function RequestTokenBreakdown({ record }: { record: UsageRecord }) {
+export function RequestTokenBreakdown({
+  tokens,
+  tokenBreakdown,
+}: {
+  tokens: UsageTokens
+  tokenBreakdown: UsageTokenBreakdown | null
+}) {
   const { t } = useTranslation()
-  const breakdown = record.tokenBreakdown
+  const breakdown = tokenBreakdown
   const legacyTokenFields = [
-    ['input', record.tokens.inputTokens],
-    ['output', record.tokens.outputTokens],
-    ['reasoning', record.tokens.reasoningTokens],
-    ['cached', record.tokens.cachedTokens],
-    ['cacheRead', record.tokens.cacheReadTokens],
-    ['cacheCreate', record.tokens.cacheCreationTokens],
-    ['total', record.tokens.totalTokens],
+    ['input', tokens.inputTokens],
+    ['output', tokens.outputTokens],
+    ['reasoning', tokens.reasoningTokens],
+    ['cached', tokens.cachedTokens],
+    ['cacheRead', tokens.cacheReadTokens],
+    ['cacheCreate', tokens.cacheCreationTokens],
+    ['total', tokens.totalTokens],
   ] as const
 
   return (
@@ -4024,7 +3995,10 @@ export function RequestDetailSheet({
                 </DiagnosticDetailField>
               </div>
 
-              <RequestTokenBreakdown record={record} />
+              <RequestTokenBreakdown
+                tokens={record.tokens}
+                tokenBreakdown={record.tokenBreakdown}
+              />
 
               <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
                 <DiagnosticDetailField label={t('usageLogsPage.detail.fields.latency')}>
@@ -4423,8 +4397,8 @@ export function CredentialUsageTable({
       ) : response ? (
         rows.length > 0 ? (
           <div className="px-3 py-3">
-            <Table
-              containerClassName={cn(containedTableContainerClassName, 'rounded-md border')}
+            <ContainedTable
+              containerClassName="rounded-md border"
               className="table-fixed"
               style={{ minWidth: visibleTableWidth }}
             >
@@ -4550,7 +4524,7 @@ export function CredentialUsageTable({
                   )
                 })}
               </TableBody>
-            </Table>
+            </ContainedTable>
           </div>
         ) : (
           <TableEmptyState
@@ -4823,8 +4797,8 @@ function UsageHealthMiniTable({
       </div>
       {response ? (
         rows.length > 0 ? (
-          <Table
-            containerClassName="h-[420px] overflow-auto rounded-md border"
+          <ContainedTable
+            containerClassName="h-[420px] max-h-none rounded-md border"
             className="min-w-[760px] table-fixed"
           >
             <TableHeader className={stickyTableHeaderClassName}>
@@ -4915,7 +4889,7 @@ function UsageHealthMiniTable({
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+          </ContainedTable>
         ) : (
           <TableEmptyState
             kind="empty"
@@ -5008,7 +4982,7 @@ function RuntimeLogFiltersToolbar({
   onChange: (nextFilters: Partial<RuntimeLogFilters>) => void
   onClear: () => void
 }) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const [searchField, setSearchField] = useState<RuntimeLogSearchField>(() =>
     getActiveRuntimeLogSearchField(filters),
   )
@@ -5022,6 +4996,7 @@ function RuntimeLogFiltersToolbar({
     homeIp: defaultRuntimeLogFilters.homeIp,
     clientIp: defaultRuntimeLogFilters.clientIp,
     requestId: defaultRuntimeLogFilters.requestId,
+    search: defaultRuntimeLogFilters.search,
   }
 
   useEffect(() => {
@@ -5038,6 +5013,7 @@ function RuntimeLogFiltersToolbar({
     filters.homeIp,
     filters.level,
     filters.requestId,
+    filters.search,
   ])
 
   const handleSearchFieldChange = (value: string, carriedValue: string) => {
@@ -5091,14 +5067,8 @@ function RuntimeLogFiltersToolbar({
         <DateTimeRangePicker
           from={filters.after}
           to={filters.before}
-          label={t('usageLogsPage.logs.filters.dateRange')}
-          fromLabel={t('usageLogsPage.logs.filters.after')}
-          toLabel={t('usageLogsPage.logs.filters.before')}
-          separatorLabel={t('usageLogsPage.logs.filters.dateRangeSeparator')}
-          placeholder={t('usageLogsPage.logs.filters.dateRangePlaceholder')}
-          clearLabel={t('usageLogsPage.logs.filters.clearDateRange')}
+          className="sm:w-[22rem]"
           disabled={disabled}
-          locale={getDateTimeLocale(i18n)}
           onChange={(range) => onChange({ after: range.from, before: range.to })}
         />
       </div>
@@ -5126,6 +5096,7 @@ export function RuntimeLogViewer({
   canClear,
   fileLoggingEnabled,
   filters,
+  searchUnsupported,
   pageSizeOptions,
   pageSize,
   offset,
@@ -5147,6 +5118,11 @@ export function RuntimeLogViewer({
   pendingItemCount,
   pendingItemsTruncated,
   onAcceptPendingItems,
+  isFollowingBottom = true,
+  onFollowingBottomChange,
+  canLoadOlderLogs = false,
+  isLoadingOlderLogs = false,
+  onLoadOlderLogs,
   onDetailOpenChange,
 }: {
   runtimeLogs: RuntimeLogSnapshot | null
@@ -5154,6 +5130,7 @@ export function RuntimeLogViewer({
   canClear: boolean
   fileLoggingEnabled: boolean
   filters: RuntimeLogFilters
+  searchUnsupported: boolean
   pageSizeOptions: number[]
   pageSize: number
   offset: number
@@ -5185,12 +5162,26 @@ export function RuntimeLogViewer({
   pendingItemCount: number
   pendingItemsTruncated: boolean
   onAcceptPendingItems: () => void
+  isFollowingBottom?: boolean
+  onFollowingBottomChange?: (following: boolean) => void
+  canLoadOlderLogs?: boolean
+  isLoadingOlderLogs?: boolean
+  onLoadOlderLogs?: () => void
   onDetailOpenChange: (open: boolean) => void
 }) {
   const liveRefreshStatusId = 'runtime-log-live-refresh-status'
   const { t, i18n } = useTranslation()
   const [selectedLog, setSelectedLog] = useState<RuntimeLogRecord | null>(null)
+  const logTableContainerRef = useRef<HTMLDivElement | null>(null)
+  const logLinesContainerRef = useRef<HTMLDivElement | null>(null)
+  const logLinesScrollRef = useScrollDock(logLinesContainerRef)
+  const lastScrollTopRef = useRef(0)
+  const isFollowingBottomRef = useRef(isFollowingBottom)
+  isFollowingBottomRef.current = isFollowingBottom
+  const prependScrollRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null)
+  const previousOffsetRef = useRef<number | null>(null)
   const records = runtimeLogs?.records ?? []
+  const displayRecords = useMemo(() => [...records].reverse(), [records])
   const total = runtimeLogs?.total ?? runtimeLogs?.lineCount ?? 0
   const effectiveOffset = runtimeLogs?.offset ?? offset
   const effectiveLimit = runtimeLogs?.limit ?? pageSize
@@ -5200,11 +5191,95 @@ export function RuntimeLogViewer({
   const canGoNext = canRead && effectiveOffset + effectiveLimit < total
   const hasActiveFilters = hasActiveRuntimeLogFilters(filters)
 
+  useEffect(() => {
+    if (!isLoadingOlderLogs && prependScrollRef.current) {
+      prependScrollRef.current = null
+    }
+  }, [isLoadingOlderLogs])
+
+  useLayoutEffect(() => {
+    if (!canRead || !runtimeLogs) return
+    const container =
+      runtimeLogs.records.length > 0
+        ? logTableContainerRef.current
+        : runtimeLogs.lines.length > 0
+          ? logLinesContainerRef.current
+          : null
+    if (!container) return
+
+    if (prependScrollRef.current) {
+      restoreRuntimeLogPrependScroll(container, prependScrollRef.current)
+      prependScrollRef.current = null
+      lastScrollTopRef.current = container.scrollTop
+      previousOffsetRef.current = effectiveOffset
+      return
+    }
+
+    const offsetChanged = previousOffsetRef.current !== effectiveOffset
+    previousOffsetRef.current = effectiveOffset
+    if (offsetChanged || (effectiveOffset === 0 && isFollowingBottomRef.current)) {
+      scrollRuntimeLogContainerToBottom(container)
+      lastScrollTopRef.current = container.scrollTop
+    }
+  }, [canRead, effectiveOffset, runtimeLogs])
+
+  useEffect(() => {
+    const container = logTableContainerRef.current ?? logLinesContainerRef.current
+    if (!container || !canRead) return
+
+    const handleScroll = () => {
+      const currentScrollTop = container.scrollTop
+      const scrollingUp = currentScrollTop < lastScrollTopRef.current
+      lastScrollTopRef.current = currentScrollTop
+
+      if (effectiveOffset !== 0 || isLoadingOlderLogs) return
+
+      const nearBottom = isRuntimeLogScrollNearBottom(container)
+      onFollowingBottomChange?.(nearBottom)
+      if (nearBottom && pendingItemCount > 0) {
+        onAcceptPendingItems()
+      }
+
+      if (
+        !nearBottom &&
+        scrollingUp &&
+        isRuntimeLogScrollNearTop(container) &&
+        canLoadOlderLogs &&
+        onLoadOlderLogs
+      ) {
+        prependScrollRef.current = {
+          scrollHeight: container.scrollHeight,
+          scrollTop: container.scrollTop,
+        }
+        onLoadOlderLogs()
+      }
+    }
+
+    container.addEventListener('scroll', handleScroll, { passive: true })
+    return () => container.removeEventListener('scroll', handleScroll)
+  }, [
+    canLoadOlderLogs,
+    canRead,
+    effectiveOffset,
+    isLoadingOlderLogs,
+    onAcceptPendingItems,
+    onFollowingBottomChange,
+    onLoadOlderLogs,
+    pendingItemCount,
+    records.length,
+    runtimeLogs?.lines.length,
+  ])
+
   return (
     <TableSurface className="min-w-0 p-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <SectionHeader title={t('usageLogsPage.logs.title')} />
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
+          <NewItemsNotice
+            count={pendingItemCount}
+            truncated={pendingItemsTruncated}
+            onAccept={onAcceptPendingItems}
+          />
           <LiveRefreshControl
             enabled={liveRefresh.enabled}
             disabled={!liveRefresh.available}
@@ -5282,12 +5357,14 @@ export function RuntimeLogViewer({
           />
         </div>
       ) : null}
-      <NewItemsNotice
-        count={pendingItemCount}
-        truncated={pendingItemsTruncated}
-        className="mt-3"
-        onAccept={onAcceptPendingItems}
-      />
+      {canRead && searchUnsupported ? (
+        <div className="border-warning/30 bg-warning/8 text-warning-foreground dark:text-warning mt-3 rounded-md border px-3 py-2.5 text-sm">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            <span>{t('usageLogsPage.logs.searchUnsupported')}</span>
+          </div>
+        </div>
+      ) : null}
       <div className="mt-3 overflow-hidden rounded-md border">
         {!canRead ? (
           <TableEmptyState
@@ -5306,13 +5383,13 @@ export function RuntimeLogViewer({
           />
         ) : records.length > 0 ? (
           <>
-            <Table
-              containerClassName={containedTableContainerClassName}
+            <ContainedTable
+              containerRef={logTableContainerRef}
               className="w-full min-w-[900px] table-fixed"
             >
               <TableHeader className={stickyTableHeaderClassName}>
                 <TableRow variant="static">
-                  <TableHead className="w-[172px]">
+                  <TableHead className="w-[216px]">
                     {t('usageLogsPage.logs.columns.time')}
                   </TableHead>
                   <TableHead className="w-[152px]">
@@ -5325,7 +5402,7 @@ export function RuntimeLogViewer({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {records.map((record) => (
+                {displayRecords.map((record) => (
                   <RuntimeLogRow
                     key={record.id}
                     record={record}
@@ -5336,23 +5413,29 @@ export function RuntimeLogViewer({
                   />
                 ))}
               </TableBody>
-            </Table>
+            </ContainedTable>
             <RuntimeLogPagination
               pageSizeOptions={pageSizeOptions}
               pageSize={pageSize}
               start={start}
               end={end}
               total={total}
+              offset={effectiveOffset}
+              limit={effectiveLimit}
               canGoPrevious={canGoPrevious}
               canGoNext={canGoNext}
               mutating={fetching || mutating}
               onPageSizeChange={onPageSizeChange}
+              onOffsetChange={onOffsetChange}
               onPrevious={() => onOffsetChange(Math.max(0, effectiveOffset - effectiveLimit))}
               onNext={() => onOffsetChange(effectiveOffset + effectiveLimit)}
             />
           </>
         ) : runtimeLogs?.lines.length ? (
-          <div className="bg-muted/40 max-h-[360px] overflow-auto p-3">
+          <div
+            ref={logLinesScrollRef}
+            className="bg-muted/40 max-h-[360px] [scrollbar-gutter:stable] overflow-auto p-3"
+          >
             <pre className="text-foreground font-mono text-xs leading-5 break-words whitespace-pre-wrap">
               {runtimeLogs.lines.join('\n')}
             </pre>
@@ -5413,10 +5496,13 @@ function RuntimeLogPagination({
   start,
   end,
   total,
+  offset,
+  limit,
   canGoPrevious,
   canGoNext,
   mutating,
   onPageSizeChange,
+  onOffsetChange,
   onPrevious,
   onNext,
 }: {
@@ -5425,14 +5511,35 @@ function RuntimeLogPagination({
   start: number
   end: number
   total: number
+  offset: number
+  limit: number
   canGoPrevious: boolean
   canGoNext: boolean
   mutating: boolean
   onPageSizeChange: (pageSize: number) => void
+  onOffsetChange: (offset: number) => void
   onPrevious: () => void
   onNext: () => void
 }) {
   const { t } = useTranslation()
+  const currentPage = Math.floor(offset / limit) + 1
+  const totalPages = Math.max(1, Math.ceil(total / limit))
+  const [jumpPage, setJumpPage] = useState(String(currentPage))
+
+  useEffect(() => {
+    setJumpPage(String(currentPage))
+  }, [currentPage])
+
+  const submitJumpPage = () => {
+    const parsed = Number.parseInt(jumpPage, 10)
+    if (Number.isNaN(parsed)) {
+      setJumpPage(String(currentPage))
+      return
+    }
+    const nextPage = Math.min(Math.max(1, parsed), totalPages)
+    setJumpPage(String(nextPage))
+    if (nextPage !== currentPage) onOffsetChange((nextPage - 1) * limit)
+  }
 
   return (
     <div className="border-border/80 bg-muted/20 flex flex-col gap-3 border-t px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -5476,6 +5583,16 @@ function RuntimeLogPagination({
             type="button"
             variant="outline"
             size="md"
+            disabled={offset === 0 || mutating}
+            onClick={() => onOffsetChange(0)}
+          >
+            <ChevronsLeft className="size-4" aria-hidden="true" />
+            {t('usageLogsPage.logs.pagination.first')}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="md"
             disabled={!canGoPrevious || mutating}
             onClick={onPrevious}
           >
@@ -5491,6 +5608,37 @@ function RuntimeLogPagination({
           >
             {t('usageLogsPage.logs.pagination.next')}
             <ChevronRight className="size-4" aria-hidden="true" />
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground text-sm whitespace-nowrap">
+            {t('usageLogsPage.logs.pagination.pageIndicator', {
+              page: formatNumber(currentPage),
+              pages: formatNumber(totalPages),
+            })}
+          </span>
+          <Input
+            type="number"
+            min={1}
+            max={totalPages}
+            value={jumpPage}
+            disabled={mutating}
+            size="md"
+            className="w-20"
+            aria-label={t('usageLogsPage.logs.pagination.jumpInput')}
+            onChange={(event) => setJumpPage(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') submitJumpPage()
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="md"
+            disabled={mutating}
+            onClick={submitJumpPage}
+          >
+            {t('usageLogsPage.logs.pagination.jump')}
           </Button>
         </div>
       </div>
@@ -5609,7 +5757,7 @@ function RuntimeLogRow({
 
   return (
     <TableRow variant="resource" className="group">
-      <TableCell className="text-muted-foreground truncate">
+      <TableCell className="text-muted-foreground truncate tabular-nums">
         {formatDateTime(record.timestamp, i18n) ?? <EmptyValue />}
       </TableCell>
       <TableCell className="text-muted-foreground truncate font-mono text-xs">
@@ -5712,16 +5860,13 @@ export function ErrorLogFilesPanel({
             description={t('usageLogsPage.errorLogs.unavailable')}
           />
         ) : rows.length > 0 ? (
-          <Table
-            containerClassName={containedTableContainerClassName}
-            className="min-w-[620px] table-fixed"
-          >
+          <ContainedTable className="min-w-[680px] table-fixed">
             <TableHeader className={stickyTableHeaderClassName}>
               <TableRow variant="static">
                 <TableHead className="w-[260px]">
                   {t('usageLogsPage.errorLogs.columns.name')}
                 </TableHead>
-                <TableHead className="w-[160px]">
+                <TableHead className="w-[216px]">
                   {t('usageLogsPage.errorLogs.columns.modified')}
                 </TableHead>
                 <TableHead className="w-[80px] text-right">
@@ -5739,7 +5884,7 @@ export function ErrorLogFilesPanel({
                 return (
                   <TableRow key={row.name} variant="resource" className="group">
                     <TableCell className="truncate font-mono text-xs">{row.name}</TableCell>
-                    <TableCell className="text-muted-foreground truncate">
+                    <TableCell className="text-muted-foreground truncate tabular-nums">
                       {formatTimestamp(row.modified, i18n) ?? <EmptyValue />}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-right">
@@ -5768,7 +5913,7 @@ export function ErrorLogFilesPanel({
                 )
               })}
             </TableBody>
-          </Table>
+          </ContainedTable>
         ) : (
           <TableEmptyState
             kind="empty"

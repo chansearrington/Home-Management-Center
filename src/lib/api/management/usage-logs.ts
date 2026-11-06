@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { createManagementClient, toManagementApiError } from '@/lib/api/management/client'
 import type { ManagementApiError, ManagementSessionInput } from '@/lib/api/management/types'
+import { parseCalendarDate } from '@/lib/date-range'
 
 type UnknownRecord = Record<string, unknown>
 export type UsageLogIssueScope =
@@ -199,6 +200,10 @@ export type RuntimeLogSnapshot = {
   total: number | null
   limit: number | null
   offset: number | null
+  anchorId: number | null
+  beforeId: number | null
+  afterId: number | null
+  appliedSearch: string | null
 }
 
 export type RuntimeLogLevelFilter = 'all' | 'trace' | 'debug' | 'info' | 'warn' | 'error'
@@ -207,20 +212,25 @@ export type RuntimeLogFilters = {
   homeIp: string
   clientIp: string
   requestId: string
+  search: string
   level: RuntimeLogLevelFilter
   after: string
   before: string
 }
 
-type RuntimeLogQuery = {
+export type RuntimeLogQuery = {
   limit: number
   offset: number
+  anchorId?: number | null
+  beforeId?: number | null
+  afterId?: number | null
 } & RuntimeLogFilters
 
 export const defaultRuntimeLogFilters: RuntimeLogFilters = {
   homeIp: '',
   clientIp: '',
   requestId: '',
+  search: '',
   level: 'all',
   after: '',
   before: '',
@@ -962,6 +972,8 @@ function normalizeRuntimeLogs(responseData: unknown, indexBase = 0): RuntimeLogS
   const latestRecordTimestamp = records
     .map((item) => timestampToMilliseconds(item.timestamp))
     .find((value): value is number => value !== null)
+  const offset = readNumber(record, 'offset')
+  const explicitAnchorId = readNumber(record, 'anchor_id') ?? readNumber(record, 'anchorId')
 
   return {
     lines: normalizedLines,
@@ -971,7 +983,14 @@ function normalizeRuntimeLogs(responseData: unknown, indexBase = 0): RuntimeLogS
     latestTimestamp: readNumber(record, 'latest-timestamp') ?? latestRecordTimestamp ?? null,
     total: readNumber(record, 'total'),
     limit: readNumber(record, 'limit'),
-    offset: readNumber(record, 'offset'),
+    offset,
+    anchorId:
+      explicitAnchorId !== null && Number.isSafeInteger(explicitAnchorId) && explicitAnchorId > 0
+        ? explicitAnchorId
+        : null,
+    beforeId: readNumber(record, 'before_id') ?? readNumber(record, 'beforeId'),
+    afterId: readNumber(record, 'after_id') ?? readNumber(record, 'afterId'),
+    appliedSearch: readString(record, 'search'),
   }
 }
 
@@ -1708,21 +1727,21 @@ function startOfLocalDay(date: Date) {
   return next
 }
 
-function parseDateOnly(value: string, boundary: 'start' | 'end') {
-  const trimmed = value.trim()
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed)
-  if (!match) return null
+function parseDateOnly(value: string) {
+  return parseCalendarDate(value.trim())
+}
 
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
-  if (Number.isNaN(date.getTime())) return null
-
-  if (boundary === 'end') {
-    date.setHours(23, 59, 59, 999)
-  } else {
-    date.setHours(0, 0, 0, 0)
-  }
-
-  return date
+export function isUsageDateRangeValid(
+  filters: Pick<UsageFilters, 'range' | 'customFrom' | 'customTo'>,
+) {
+  if (filters.range !== 'custom') return true
+  const customFrom = filters.customFrom.trim()
+  const customTo = filters.customTo.trim()
+  const from = customFrom ? parseDateOnly(customFrom) : null
+  const to = customTo ? parseDateOnly(customTo) : null
+  if ((customFrom && !from) || (customTo && !to)) return false
+  if (from && to && from.getTime() > to.getTime()) return false
+  return true
 }
 
 function getDateRange(filters: UsageFilters) {
@@ -1730,12 +1749,11 @@ function getDateRange(filters: UsageFilters) {
   const range = filters.range
 
   if (range === 'custom') {
-    const from = parseDateOnly(filters.customFrom, 'start')
-    const to = parseDateOnly(filters.customTo, 'end')
-
+    // Date-only boundaries let the backend include the entire ending day in
+    // the supplied timezone, including days shortened or extended by DST.
     return {
-      from: from?.toISOString(),
-      to: to?.toISOString(),
+      from: parseDateOnly(filters.customFrom) ? filters.customFrom.trim() : undefined,
+      to: parseDateOnly(filters.customTo) ? filters.customTo.trim() : undefined,
     }
   }
 
@@ -1834,8 +1852,21 @@ function getRuntimeLogQueryParams(query: RuntimeLogQuery) {
   const homeIp = query.homeIp.trim()
   const clientIp = query.clientIp.trim()
   const requestId = query.requestId.trim()
+  const search = query.search.trim()
   const after = normalizeRuntimeLogTimeFilter(query.after)
   const before = normalizeRuntimeLogTimeFilter(query.before)
+  const anchorId =
+    typeof query.anchorId === 'number' && Number.isSafeInteger(query.anchorId) && query.anchorId > 0
+      ? query.anchorId
+      : undefined
+  const beforeId =
+    typeof query.beforeId === 'number' && Number.isSafeInteger(query.beforeId) && query.beforeId > 0
+      ? query.beforeId
+      : undefined
+  const afterId =
+    typeof query.afterId === 'number' && Number.isSafeInteger(query.afterId) && query.afterId > 0
+      ? query.afterId
+      : undefined
 
   return {
     limit: query.limit,
@@ -1843,9 +1874,13 @@ function getRuntimeLogQueryParams(query: RuntimeLogQuery) {
     ...(homeIp ? { home_ip: homeIp } : {}),
     ...(clientIp ? { client_ip: clientIp } : {}),
     ...(requestId ? { request_id: requestId } : {}),
+    ...(search ? { search } : {}),
     ...(query.level !== 'all' ? { level: query.level } : {}),
     ...(after ? { after } : {}),
     ...(before ? { before } : {}),
+    ...(anchorId ? { anchor_id: anchorId } : {}),
+    ...(beforeId ? { before_id: beforeId } : {}),
+    ...(afterId ? { after_id: afterId } : {}),
   }
 }
 
@@ -2011,10 +2046,14 @@ export async function fetchUsageRuntimeSettings(
   const client = createManagementClient(session)
   const response = await client.get<unknown>('/config')
   const config = toRecord(response.data)
+  const observability = toRecord(config.observability)
 
   return {
-    usageStatisticsEnabled: readConfigBoolean(config, 'usage-statistics-enabled'),
-    fileLoggingEnabled: readConfigBoolean(config, 'logging-to-file'),
+    usageStatisticsEnabled: readConfigBoolean(
+      toRecord(observability.usage),
+      'usage-statistics-enabled',
+    ),
+    fileLoggingEnabled: readConfigBoolean(toRecord(observability.logs), 'logging-to-file'),
   }
 }
 
@@ -2072,7 +2111,7 @@ export async function fetchRequestErrorLogs(
   session: ManagementSessionInput,
 ): Promise<RequestErrorLogFile[]> {
   const client = createManagementClient(session)
-  const response = await client.get<unknown>('/request-error-logs')
+  const response = await client.get<unknown>('/observability/logs/errors')
   return normalizeRequestErrorLogs(response.data)
 }
 
@@ -2137,7 +2176,7 @@ export async function fetchRuntimeLogs(
   query: RuntimeLogQuery,
 ): Promise<RuntimeLogSnapshot> {
   const client = createManagementClient(session)
-  const response = await client.get<unknown>('/logs', {
+  const response = await client.get<unknown>('/observability/logs', {
     params: getRuntimeLogQueryParams(query),
   })
   return normalizeRuntimeLogs(response.data, query.offset)
@@ -2145,7 +2184,7 @@ export async function fetchRuntimeLogs(
 
 export async function clearRuntimeLogs(session: ManagementSessionInput): Promise<ClearLogsResult> {
   const client = createManagementClient(session)
-  const response = await client.delete<unknown>('/logs')
+  const response = await client.delete<unknown>('/observability/logs')
   const record = toRecord(response.data)
 
   return {
@@ -2160,9 +2199,12 @@ export async function downloadRequestErrorLog(
   fileName: string,
 ): Promise<LogDownloadResult> {
   const client = createManagementClient(session)
-  const response = await client.get<Blob>(`/request-error-logs/${encodeURIComponent(fileName)}`, {
-    responseType: 'blob',
-  })
+  const response = await client.get<Blob>(
+    `/observability/logs/errors/${encodeURIComponent(fileName)}`,
+    {
+      responseType: 'blob',
+    },
+  )
 
   return {
     blob: response.data,
@@ -2191,7 +2233,7 @@ export async function downloadRequestLogById(
         }
       : undefined
   const response = await client.get<Blob>(
-    `/request-log-by-id/${encodeURIComponent(normalizedRequestId)}`,
+    `/observability/logs/requests/${encodeURIComponent(normalizedRequestId)}`,
     {
       params,
       responseType: 'blob',

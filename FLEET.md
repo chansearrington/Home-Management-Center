@@ -1,7 +1,7 @@
 # Fleet panel integration
 
-The `fleet` branch tracks the panel bundled with the deployed Home 1.1.1 generation,
-starting at upstream `3813264ca89b1fa46922f863a339c193a5ab33e6`. Keep unrelated upstream
+The `fleet` branch tracks the panel paired with the Home 1.1.8 release,
+including upstream `61a6bb34814f5da024fd51f850a6c807e2b6d831`. Keep unrelated upstream
 UI upgrades separate from fleet fixes. The backend fork is
 `chansearrington/CLIProxyAPIHome`; its current API contract is authoritative.
 

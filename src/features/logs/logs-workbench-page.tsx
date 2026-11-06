@@ -228,6 +228,7 @@ export function LogsWorkbenchPage() {
         canClear={workbench.capabilities.logs && context.settings.fileLoggingEnabled}
         fileLoggingEnabled={context.settings.fileLoggingEnabled}
         filters={workbench.runtimeLogFilters}
+        searchUnsupported={workbench.runtimeLogSearchUnsupported}
         pageSizeOptions={workbench.runtimeLogPageSizeOptions}
         pageSize={workbench.runtimeLogLimit}
         offset={workbench.runtimeLogOffset}
@@ -251,6 +252,11 @@ export function LogsWorkbenchPage() {
         pendingItemCount={workbench.pendingRuntimeLogCount}
         pendingItemsTruncated={workbench.pendingRuntimeLogsTruncated}
         onAcceptPendingItems={workbench.acceptPendingRuntimeLogs}
+        isFollowingBottom={workbench.isFollowingBottom}
+        onFollowingBottomChange={workbench.setIsFollowingBottom}
+        canLoadOlderLogs={workbench.canLoadOlderLogs}
+        isLoadingOlderLogs={workbench.isLoadingOlderLogs}
+        onLoadOlderLogs={workbench.loadOlderRuntimeLogs}
         onDetailOpenChange={workbench.setRuntimeLogDetailOpen}
       />
 

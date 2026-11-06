@@ -1,6 +1,24 @@
-import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from 'react'
+import {
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 
-import { AlertTriangle, CircleGauge, Download, Loader2, RefreshCw, Trash2 } from 'lucide-react'
+import {
+  ChevronDown,
+  CircleGauge,
+  Download,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -12,7 +30,15 @@ import {
 import { fieldClassName } from '@/components/shared/form-layout'
 import { ProviderLogo } from '@/components/shared/provider-logo'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
@@ -37,19 +63,28 @@ import {
 import {
   useCredentialConcurrencyPolicy,
   useCredentialInFlightDetail,
+  useCredentialRawMetadata,
 } from '@/features/credentials/use-credential-workbench'
 import {
   InlineWindowBar,
-  UpstreamQuotaMetaBadge,
-  UpstreamQuotaPlanBadge,
-  UpstreamQuotaStatusBadge,
+  QuotaSnapshotBadges,
+  XaiProductUsageList,
 } from '@/features/upstream/quota-cells'
+import {
+  QuotaCollectionFacts,
+  QuotaCollectionNotice,
+} from '@/features/upstream/quota-collection-notice'
 import {
   type AntigravityQuotaGroup,
   type UpstreamQuotaEntry,
   findCurrencyWindow,
   findXaiOnDemandWindow,
+  findXaiProductUsageWindows,
+  isXaiProductUsageWindow,
   resolveAntigravityQuotaPresentation,
+  resolveCredentialQuotaAction,
+  resolveQuotaSnapshotDisplay,
+  resolveXaiOnDemandState,
 } from '@/features/upstream/upstream-quota-model'
 import { useUpstreamQuotaCredentialDetail } from '@/features/upstream/use-upstream-quota'
 import {
@@ -58,7 +93,15 @@ import {
   type CredentialInFlightSummary,
   type CredentialMetadataPatch,
   type CredentialResource,
+  MAX_CREDENTIAL_WEIGHT,
+  isEditableCredentialMetadataPath,
   matchesCredentialBackendError,
+  readCredentialDisableCoolingOverride,
+  readCredentialExcludedModels,
+  readCredentialHeaders,
+  readCredentialUsingApi,
+  readCredentialWeight,
+  supportsCredentialUsingApi,
   supportsCredentialWebsockets,
 } from '@/lib/api/management/credentials'
 import type { QuotaCredential, QuotaResetCredits, QuotaWindow } from '@/lib/api/management/quota'
@@ -83,12 +126,33 @@ function visibleDrawerTabs(showConcurrency: boolean): CredentialDrawerTab[] {
   ]
 }
 
-function createMetadataForm(
+export function createMetadataForm(
   resource: CredentialResource | null,
   policy: CredentialConcurrencyPolicy | null = null,
+  rawMetadata: Record<string, unknown> | null = null,
 ): CredentialMetadataForm {
   const maxInFlight = resource?.maxInFlight ?? null
   const maxInFlightByModel = resource?.maxInFlightByModel ?? {}
+  const weight =
+    (rawMetadata ? readCredentialWeight(rawMetadata) : null) ?? resource?.weight ?? null
+  const rawHeaders = rawMetadata ? readCredentialHeaders(rawMetadata) : {}
+  const headersMap = Object.keys(rawHeaders).length > 0 ? rawHeaders : (resource?.headers ?? {})
+  const rawExcluded = rawMetadata ? readCredentialExcludedModels(rawMetadata) : []
+  const excludedModels = rawExcluded.length > 0 ? rawExcluded : (resource?.excludedModels ?? [])
+  const rawCooling = rawMetadata ? readCredentialDisableCoolingOverride(rawMetadata) : null
+  const disableCoolingOverride =
+    resource?.disableCoolingOverride !== undefined && resource.disableCoolingOverride !== null
+      ? resource.disableCoolingOverride
+      : (rawCooling ?? resource?.disableCoolingOverride ?? null)
+  const rawUsingApi =
+    rawMetadata &&
+    (Object.prototype.hasOwnProperty.call(rawMetadata, 'using_api') ||
+      Object.prototype.hasOwnProperty.call(rawMetadata, 'using-api') ||
+      Object.prototype.hasOwnProperty.call(rawMetadata, 'usingApi'))
+      ? readCredentialUsingApi(rawMetadata)
+      : null
+  const usingApi = rawUsingApi ?? resource?.usingApi ?? false
+
   return applyCredentialConcurrencyPolicyToForm(
     {
       prefix: resource?.prefix ?? '',
@@ -97,12 +161,17 @@ function createMetadataForm(
         resource?.priority === null || resource?.priority === undefined
           ? ''
           : String(resource.priority),
+      weight: weight === null ? '' : String(weight),
       requestRetry:
         resource?.requestRetry === null || resource?.requestRetry === undefined
           ? ''
           : String(resource.requestRetry),
       websockets: resource?.websockets ?? false,
-      disableCooling: resource?.disableCooling ?? false,
+      usingApi,
+      disableCooling: disableCoolingOverride,
+      headers: Object.entries(headersMap).map(([key, value]) => ({ key, value })),
+      excludedModelsText: excludedModels.join('\n'),
+      customFields: [],
       note: resource?.note ?? '',
       maxInFlight: maxInFlight ? String(maxInFlight) : '',
       maxInFlightByModel: Object.entries(maxInFlightByModel)
@@ -114,8 +183,11 @@ function createMetadataForm(
 }
 
 export function isValidProxyUrl(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return false
+  if (trimmed.toLowerCase() === 'direct') return true
   try {
-    const url = new URL(value)
+    const url = new URL(trimmed)
     return ['http:', 'https:', 'socks5:', 'socks5h:'].includes(url.protocol)
   } catch {
     return false
@@ -127,6 +199,14 @@ export function isValidCredentialPriorityDraft(value: string) {
   return trimmed === '' || (/^-?\d+$/.test(trimmed) && Number.isSafeInteger(Number(trimmed)))
 }
 
+export function isValidCredentialWeightDraft(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return true
+  if (!/^\+?\d+$/.test(trimmed)) return false
+  const parsed = Number(trimmed)
+  return Number.isSafeInteger(parsed) && parsed >= 0 && parsed <= MAX_CREDENTIAL_WEIGHT
+}
+
 export function isValidCredentialRequestRetryDraft(value: string) {
   const trimmed = value.trim()
   return (
@@ -135,9 +215,34 @@ export function isValidCredentialRequestRetryDraft(value: string) {
   )
 }
 
+function parseExcludedModelsDraft(text: string): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const item of text.split(/[\r\n,]+/)) {
+    const trimmed = item.trim()
+    const key = trimmed.toLowerCase()
+    if (!trimmed || seen.has(key)) continue
+    seen.add(key)
+    result.push(trimmed)
+  }
+  return result
+}
+
+function parseCustomMetadataValue(raw: string): unknown {
+  const trimmed = raw.trim()
+  if (!trimmed) return ''
+  try {
+    return JSON.parse(trimmed) as unknown
+  } catch {
+    return raw
+  }
+}
+
 export function buildCredentialMetadataPatch(
   resource: CredentialResource,
   form: CredentialMetadataForm,
+  rawMetadata: Record<string, unknown> | null = null,
+  baseline: CredentialMetadataForm = createMetadataForm(resource, null, rawMetadata),
 ): CredentialMetadataPatch {
   const patch: CredentialMetadataPatch = {}
   const prefix = form.prefix.trim()
@@ -146,26 +251,88 @@ export function buildCredentialMetadataPatch(
   const requestRetry = form.requestRetry.trim()
   const note = form.note.trim()
 
-  if (prefix !== (resource.prefix ?? '')) patch.prefix = form.prefix
-  if (proxyUrl !== (resource.proxyUrl ?? '')) patch.proxyUrl = form.proxyUrl
-  if (priority !== (resource.priority == null ? '' : String(resource.priority))) {
+  if (prefix !== baseline.prefix.trim()) patch.prefix = form.prefix
+  if (proxyUrl !== baseline.proxyUrl.trim()) patch.proxyUrl = form.proxyUrl
+  if (priority !== baseline.priority.trim()) {
     patch.priority = priority === '' ? null : priority
   }
-  if (requestRetry !== (resource.requestRetry == null ? '' : String(resource.requestRetry))) {
+  if (form.weight !== undefined) {
+    const baselineWeight = baseline.weight?.trim() ? Number(baseline.weight) : null
+    const nextWeightText = form.weight.trim()
+    const nextWeight = nextWeightText === '' ? null : Number(nextWeightText)
+    if (nextWeight !== baselineWeight) {
+      patch.weight = nextWeight
+    }
+  }
+  if (requestRetry !== baseline.requestRetry.trim()) {
     patch.requestRetry = requestRetry === '' ? null : requestRetry
   }
-  if (note !== (resource.note ?? '')) patch.note = form.note
+  if (note !== baseline.note.trim()) patch.note = form.note
   if (
     supportsCredentialWebsockets(resource) &&
     resource.metadataAvailability.websockets &&
-    form.websockets !== resource.websockets
+    form.websockets !== baseline.websockets
   ) {
     patch.websockets = form.websockets
   }
-  // Cooling has no availability gate: an absent `disable-cooling` field means the
-  // override is unset, i.e. cooling stays enabled, so the toggle is always live.
-  if (form.disableCooling !== resource.disableCooling) {
-    patch.disableCooling = form.disableCooling
+  if (
+    supportsCredentialUsingApi(resource) &&
+    form.usingApi !== undefined &&
+    form.usingApi !== (baseline.usingApi ?? false)
+  ) {
+    patch.usingApi = form.usingApi
+  }
+  if (form.disableCooling !== undefined) {
+    const baselineCooling = baseline.disableCooling ?? null
+    if (form.disableCooling !== baselineCooling) {
+      patch.disableCooling = form.disableCooling
+    }
+  }
+  if (form.headers !== undefined) {
+    const baselineHeaders = Object.fromEntries(
+      (baseline.headers ?? [])
+        .filter(({ key, value }) => key.trim() && value.trim())
+        .map(({ key, value }) => [key.trim(), value.trim()]),
+    )
+    const nextHeaders: Record<string, string> = {}
+    for (const entry of form.headers) {
+      const key = entry.key.trim()
+      const value = entry.value.trim()
+      if (!key || !value) continue
+      nextHeaders[key] = value
+    }
+    const headersPatch: Record<string, string> = {}
+    for (const [key, value] of Object.entries(nextHeaders)) {
+      if (baselineHeaders[key] !== value) {
+        headersPatch[key] = value
+      }
+    }
+    for (const key of Object.keys(baselineHeaders)) {
+      if (!Object.prototype.hasOwnProperty.call(nextHeaders, key)) {
+        headersPatch[key] = ''
+      }
+    }
+    if (Object.keys(headersPatch).length > 0) {
+      patch.headers = headersPatch
+    }
+  }
+  if (form.excludedModelsText !== undefined) {
+    const baselineExcluded = parseExcludedModelsDraft(baseline.excludedModelsText ?? '')
+    const nextExcluded = parseExcludedModelsDraft(form.excludedModelsText)
+    if (JSON.stringify(nextExcluded) !== JSON.stringify(baselineExcluded)) {
+      patch.excludedModels = nextExcluded
+    }
+  }
+  if (form.customFields !== undefined) {
+    const customPatch: Record<string, unknown> = {}
+    for (const entry of form.customFields) {
+      const path = entry.path.trim()
+      if (!path) continue
+      customPatch[path] = parseCustomMetadataValue(entry.value)
+    }
+    if (Object.keys(customPatch).length > 0) {
+      patch.customFields = customPatch
+    }
   }
 
   return patch
@@ -295,16 +462,18 @@ function OverviewTab({
             websocketsSupported
               ? resource.metadataAvailability.websockets
                 ? resource.websockets
-                  ? t('credentialsPage.status.enabled')
-                  : t('credentialsPage.status.disabled')
-                : t('credentialsPage.status.notAvailable')
+                  ? t('credentialsPage.inline.websocketsEnabled')
+                  : t('credentialsPage.inline.websocketsDisabled')
+                : t('credentialsPage.inline.websocketsUnknown')
               : t('credentialsPage.inline.notApplicable'),
           ],
           [
             'cooling',
-            resource.disableCooling
-              ? t('credentialsPage.status.disabled')
-              : t('credentialsPage.status.enabled'),
+            resource.disableCoolingOverride === null
+              ? t('credentialsPage.status.inherited')
+              : resource.disableCooling
+                ? t('credentialsPage.status.disabled')
+                : t('credentialsPage.status.enabled'),
           ],
           ['path', resource.path ?? t('credentialsPage.status.notAvailable')],
           [
@@ -347,41 +516,354 @@ function OverviewTab({
   )
 }
 
-type CredentialFormField = 'proxyUrl' | 'priority' | 'requestRetry' | 'prefix'
+type CredentialFormField =
+  | 'proxyUrl'
+  | 'priority'
+  | 'weight'
+  | 'requestRetry'
+  | 'prefix'
+  | 'headers'
+  | 'customFields'
 type CredentialFieldErrors = Partial<Record<CredentialFormField, string>>
+
+function matchExcludedModelPattern(pattern: string, modelId: string): boolean {
+  const trimmed = pattern.trim()
+  if (!trimmed) return false
+  if (trimmed.includes('*')) {
+    const regexSource = trimmed
+      .split('*')
+      .map((segment) => segment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('.*')
+    return new RegExp(`^${regexSource}$`, 'i').test(modelId)
+  }
+  return trimmed.toLowerCase() === modelId.toLowerCase()
+}
+
+function getExcludedModelMatchState(
+  rules: readonly string[],
+  modelId: string,
+): { excluded: false } | { excluded: true; by: 'exact' | 'wildcard'; rule: string } {
+  const lowerId = modelId.toLowerCase()
+  const exactRule = rules.find((rule) => !rule.includes('*') && rule.toLowerCase() === lowerId)
+  if (exactRule) {
+    return { excluded: true, by: 'exact', rule: exactRule }
+  }
+  const wildcardRule = rules.find(
+    (rule) => rule.includes('*') && matchExcludedModelPattern(rule, modelId),
+  )
+  if (wildcardRule) {
+    return { excluded: true, by: 'wildcard', rule: wildcardRule }
+  }
+  return { excluded: false }
+}
+
+type CredentialModelEntry = {
+  id: string
+  displayName: string | null
+  type: string | null
+  ownedBy: string | null
+}
+
+function CredentialExcludedModelsField({
+  value,
+  disabled,
+  models,
+  modelsLoading,
+  modelsLoaded,
+  modelsError,
+  onFetchModels,
+  onChange,
+}: {
+  value: string
+  disabled: boolean
+  models: CredentialModelEntry[] | null
+  modelsLoading: boolean
+  modelsLoaded: boolean
+  modelsError: string | null
+  onFetchModels: () => Promise<void>
+  onChange: (nextValue: string) => void
+}) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const rules = useMemo(() => parseExcludedModelsDraft(value), [value])
+
+  const [knownRules, setKnownRules] = useState(() => rules.filter((rule) => !rule.includes('*')))
+  const rememberRules = () => {
+    setKnownRules((current) => {
+      const next = parseExcludedModelsDraft([...current, ...rules].join('\n')).filter(
+        (rule) => !rule.includes('*'),
+      )
+      return next.length === current.length ? current : next
+    })
+  }
+
+  const candidates = useMemo(() => {
+    const byLowerId = new Map<string, { id: string; displayName: string | null }>()
+    for (const model of models ?? []) {
+      const id = model.id.trim()
+      if (!id) continue
+      byLowerId.set(id.toLowerCase(), { id, displayName: model.displayName })
+    }
+    for (const rule of [...knownRules, ...rules]) {
+      if (rule.includes('*')) continue
+      const lower = rule.toLowerCase()
+      if (!byLowerId.has(lower)) {
+        byLowerId.set(lower, { id: rule, displayName: null })
+      }
+    }
+    return [...byLowerId.values()].sort((left, right) =>
+      left.id.localeCompare(right.id, undefined, { sensitivity: 'base' }),
+    )
+  }, [models, knownRules, rules])
+
+  const stats = useMemo(() => {
+    let excluded = 0
+    for (const item of candidates) {
+      if (getExcludedModelMatchState(rules, item.id).excluded) {
+        excluded += 1
+      }
+    }
+    return {
+      total: candidates.length,
+      excluded,
+      available: Math.max(0, candidates.length - excluded),
+    }
+  }, [candidates, rules])
+
+  const filteredCandidates = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    if (!query) return candidates
+    return candidates.filter(
+      (item) =>
+        item.id.toLowerCase().includes(query) ||
+        (item.displayName?.toLowerCase().includes(query) ?? false),
+    )
+  }, [candidates, search])
+
+  const toggleExactRule = (modelId: string, nextChecked: boolean) => {
+    rememberRules()
+    const lowerId = modelId.toLowerCase()
+    const withoutTarget = rules.filter((rule) => rule.toLowerCase() !== lowerId)
+    const nextRules = nextChecked ? [...withoutTarget, modelId] : withoutTarget
+    onChange(nextRules.join('\n'))
+  }
+
+  const handleSelectAll = () => {
+    const nextRules = parseExcludedModelsDraft(
+      [...rules, ...filteredCandidates.map((item) => item.id)].join('\n'),
+    )
+    onChange(nextRules.join('\n'))
+  }
+
+  const summaryText = modelsLoading
+    ? t('credentialsPage.form.excludedModelsLoading')
+    : models !== null && candidates.length > 0
+      ? stats.excluded === 0 && rules.length === 0
+        ? t('credentialsPage.form.excludedModelsEmpty')
+        : t('credentialsPage.form.excludedModelsSummary', {
+            excluded: stats.excluded,
+            available: stats.available,
+          })
+      : rules.length === 0
+        ? t('credentialsPage.form.excludedModelsEmpty')
+        : t('credentialsPage.form.excludedModelsRulesSummary', { count: rules.length })
+
+  return (
+    <div className={fieldClassName}>
+      <span>{t('credentialsPage.form.excludedModels')}</span>
+      <button
+        type="button"
+        disabled={disabled}
+        aria-expanded={open}
+        className="control-bordered border-input bg-background text-foreground flex w-full items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-xs shadow-xs disabled:cursor-not-allowed disabled:opacity-50"
+        onClick={() => {
+          const nextOpen = !open
+          setOpen(nextOpen)
+          if (nextOpen && !modelsLoaded && !modelsLoading) {
+            void onFetchModels()
+          }
+        }}
+      >
+        <span className="flex min-w-0 items-center gap-2 truncate">
+          {modelsLoading ? <Loader2 className="size-3.5 shrink-0 animate-spin" /> : null}
+          <span className="truncate">{summaryText}</span>
+        </span>
+        <ChevronDown
+          className={cn(
+            'text-muted-foreground size-4 shrink-0 transition-transform',
+            open && 'rotate-180',
+          )}
+          aria-hidden="true"
+        />
+      </button>
+
+      {open ? (
+        <div className="bg-muted/20 grid gap-2.5 rounded-md border p-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-44 flex-1">
+              <Search
+                className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2"
+                aria-hidden="true"
+              />
+              <Input
+                size="sm"
+                value={search}
+                disabled={disabled}
+                placeholder={t('credentialsPage.form.excludedModelsSearchPlaceholder')}
+                className="pl-8"
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={disabled || filteredCandidates.length === 0}
+                onClick={handleSelectAll}
+              >
+                {t('credentialsPage.form.excludedModelsSelectAll')}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={disabled || rules.length === 0}
+                onClick={() => {
+                  rememberRules()
+                  onChange('')
+                }}
+              >
+                {t('credentialsPage.form.excludedModelsClear')}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-md"
+                disabled={disabled || modelsLoading}
+                aria-label={t('credentialsPage.actions.reloadModels')}
+                onClick={() => void onFetchModels()}
+              >
+                <RefreshCw
+                  className={cn('size-3.5', modelsLoading && 'animate-spin')}
+                  aria-hidden="true"
+                />
+              </Button>
+            </div>
+          </div>
+
+          {modelsError ? (
+            <p role="alert" className="text-destructive text-xs">
+              {modelsError}
+            </p>
+          ) : modelsLoaded && models === null ? (
+            <p className="text-muted-foreground text-xs">
+              {t('credentialsPage.form.excludedModelsUnavailable')}
+            </p>
+          ) : null}
+
+          {filteredCandidates.length > 0 ? (
+            <div className="bg-background grid max-h-52 gap-1 overflow-y-auto rounded-md border p-1.5">
+              {filteredCandidates.map((item) => {
+                const matchState = getExcludedModelMatchState(rules, item.id)
+                const isWildcard = matchState.excluded && matchState.by === 'wildcard'
+                return (
+                  <label
+                    key={item.id}
+                    className="hover:bg-accent/50 flex cursor-pointer items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-xs"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Checkbox
+                        checked={matchState.excluded}
+                        disabled={disabled || isWildcard}
+                        onCheckedChange={(checked) => toggleExactRule(item.id, checked === true)}
+                      />
+                      <span className="truncate font-mono">{item.id}</span>
+                    </span>
+                    {isWildcard ? (
+                      <span className="bg-muted text-muted-foreground shrink-0 rounded border px-1.5 py-0.5 font-mono text-[10px]">
+                        {matchState.rule}
+                      </span>
+                    ) : item.displayName && item.displayName !== item.id ? (
+                      <span className="text-muted-foreground max-w-40 truncate text-[11px]">
+                        {item.displayName}
+                      </span>
+                    ) : null}
+                  </label>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-muted-foreground px-1 py-2 text-center text-xs">
+              {modelsLoading
+                ? t('credentialsPage.form.excludedModelsLoading')
+                : t('credentialsPage.detail.noModels')}
+            </p>
+          )}
+        </div>
+      ) : null}
+
+      <Textarea
+        className="min-h-20 font-mono text-xs"
+        value={value}
+        placeholder={'model-a\nmodel-b*'}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <span className="text-muted-foreground text-xs leading-5 font-normal">
+        {t('credentialsPage.form.excludedModelsHint')}
+      </span>
+    </div>
+  )
+}
 
 function MetadataTab({
   resource,
   open,
   mutating,
+  models,
+  modelsLoaded,
+  modelsLoading,
+  modelsError,
+  rawMetadata,
   canEditConcurrency,
   concurrencyPolicy,
   concurrencyPolicyPending,
   concurrencyPolicyError,
   inFlightSummary,
+  onFetchModels,
   onUpdateMetadata,
   onToggleStatus,
 }: {
   resource: CredentialResource
   open: boolean
   mutating: boolean
+  models: CredentialModelEntry[] | null
+  modelsLoading: boolean
+  modelsLoaded: boolean
+  modelsError: string | null
+  rawMetadata: Record<string, unknown> | null
   canEditConcurrency: boolean
   concurrencyPolicy: CredentialConcurrencyPolicy | null
   concurrencyPolicyPending: boolean
   concurrencyPolicyError: string | null
   inFlightSummary: CredentialInFlightSummary | null
+  onFetchModels: () => Promise<void>
   onUpdateMetadata: (input: CredentialMetadataPatch) => Promise<void>
   onToggleStatus: () => Promise<void>
 }) {
   const { t } = useTranslation()
   const [form, setForm] = useState<CredentialMetadataForm>(() =>
-    createMetadataForm(resource, concurrencyPolicy),
+    createMetadataForm(resource, concurrencyPolicy, rawMetadata),
   )
   const [localError, setLocalError] = useState<CredentialMetadataLocalError | null>(null)
   const [fieldErrors, setFieldErrors] = useState<CredentialFieldErrors>({})
   const credentialId = getCredentialInFlightId(resource)
   const previousCredentialId = useRef(credentialId)
   const previousPolicyVersion = useRef<CredentialMetadataPolicyVersion>('unobserved')
+  // Compare against the values actually shown, even if a background read completes later.
+  const baselineForm = useRef(form)
 
   useEffect(() => {
     const policyVersion = concurrencyPolicy === null ? null : concurrencyPolicy.version
@@ -403,7 +885,9 @@ function MetadataTab({
       previousPolicyVersion.current = policyVersion
     }
     if (refreshMode === 'reset') {
-      setForm(createMetadataForm(resource, concurrencyPolicy))
+      const nextForm = createMetadataForm(resource, concurrencyPolicy, rawMetadata)
+      baselineForm.current = nextForm
+      setForm(nextForm)
       setLocalError(null)
       setFieldErrors({})
       return
@@ -414,7 +898,7 @@ function MetadataTab({
         retainCredentialMetadataErrorAfterPolicyRefresh(current, credentialId),
       )
     }
-  }, [concurrencyPolicy, credentialId, open, resource])
+  }, [concurrencyPolicy, credentialId, open, rawMetadata, resource])
 
   const handleFormChange: Dispatch<SetStateAction<CredentialMetadataForm>> = (nextForm) => {
     setLocalError(null)
@@ -432,7 +916,7 @@ function MetadataTab({
 
   const websocketsSupported = supportsCredentialWebsockets(resource)
   const websocketsAvailable = resource.metadataAvailability.websockets
-  const isXaiCredential = resource.provider.trim().toLowerCase() === 'xai'
+  const usingApiSupported = supportsCredentialUsingApi(resource)
   const concurrencyEditable = canEditConcurrency && concurrencyPolicy !== null
 
   const validateDraft = (): CredentialFieldErrors => {
@@ -444,8 +928,29 @@ function MetadataTab({
     if (!isValidCredentialPriorityDraft(form.priority)) {
       nextErrors.priority = t('credentialsPage.form.priorityInvalid')
     }
+    if (form.weight !== undefined && !isValidCredentialWeightDraft(form.weight)) {
+      nextErrors.weight = t('credentialsPage.form.weightInvalid')
+    }
     if (!isValidCredentialRequestRetryDraft(form.requestRetry)) {
       nextErrors.requestRetry = t('credentialsPage.form.requestRetryInvalid')
+    }
+    if (
+      form.headers?.some(
+        (header) =>
+          (!header.key.trim() && header.value.trim()) ||
+          (header.key.trim() && !header.value.trim()),
+      )
+    ) {
+      nextErrors.headers = t('credentialsPage.form.headersIncomplete')
+    }
+    if (
+      form.customFields?.some(
+        (entry) =>
+          (entry.path.trim() || entry.value.trim()) &&
+          !isEditableCredentialMetadataPath(entry.path),
+      )
+    ) {
+      nextErrors.customFields = t('credentialsPage.form.customFieldsInvalid')
     }
     return nextErrors
   }
@@ -509,7 +1014,12 @@ function MetadataTab({
       const concurrencyChanged =
         concurrencyEditable &&
         (normalizedMaxInFlight !== concurrencyPolicy?.maxInFlight || modelLimitsChanged)
-      const metadataPatch = buildCredentialMetadataPatch(resource, form)
+      const metadataPatch = buildCredentialMetadataPatch(
+        resource,
+        form,
+        rawMetadata,
+        baselineForm.current,
+      )
       const input: CredentialMetadataPatch = {
         ...metadataPatch,
         ...(concurrencyChanged
@@ -525,6 +1035,10 @@ function MetadataTab({
         return
       }
       await onUpdateMetadata(input)
+      if (previousCredentialId.current === credentialId) {
+        baselineForm.current = { ...form, customFields: [] }
+        setForm((current) => ({ ...current, customFields: [] }))
+      }
     } catch (error) {
       const versionConflict = matchesCredentialBackendError(
         error,
@@ -550,11 +1064,29 @@ function MetadataTab({
       className="grid gap-4"
       onSubmit={(event) => void handleSubmit(event)}
     >
-      <label className={fieldClassName}>
-        <span>{t('credentialsPage.form.proxyUrl')}</span>
+      <div className={fieldClassName}>
+        <div className="flex items-center justify-between gap-2">
+          <span>{t('credentialsPage.form.proxyUrl')}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            disabled={mutating}
+            onClick={() =>
+              updateField(
+                'proxyUrl',
+                form.proxyUrl.trim().toLowerCase() === 'direct' ? '' : 'direct',
+              )
+            }
+          >
+            {form.proxyUrl.trim().toLowerCase() === 'direct'
+              ? t('credentialsPage.form.proxyInherit')
+              : t('credentialsPage.form.directProxyAction')}
+          </Button>
+        </div>
         <Input
           value={form.proxyUrl}
-          placeholder="socks5://user:pass@host:port/"
+          placeholder="socks5://user:pass@host:port/ | direct"
           disabled={mutating}
           className="font-mono"
           spellCheck={false}
@@ -574,8 +1106,12 @@ function MetadataTab({
           <span className="text-destructive text-xs leading-5 font-normal">
             {fieldErrors.proxyUrl}
           </span>
-        ) : null}
-      </label>
+        ) : (
+          <span className="text-muted-foreground text-xs leading-5 font-normal">
+            {t('credentialsPage.form.proxyUrlDirectHint')}
+          </span>
+        )}
+      </div>
       <label className={fieldClassName}>
         <span>{t('credentialsPage.form.priority')}</span>
         <Input
@@ -602,6 +1138,37 @@ function MetadataTab({
         ) : (
           <span className="text-muted-foreground text-xs leading-5 font-normal">
             {t('upstreamPage.drawer.metadata.priorityHint')}
+          </span>
+        )}
+      </label>
+      <label className={fieldClassName}>
+        <span>{t('credentialsPage.form.weight')}</span>
+        <Input
+          type="number"
+          step={1}
+          max={MAX_CREDENTIAL_WEIGHT}
+          inputMode="numeric"
+          value={form.weight ?? ''}
+          placeholder="1"
+          disabled={mutating}
+          aria-invalid={Boolean(fieldErrors.weight)}
+          onChange={(event) => updateField('weight', event.target.value)}
+          onBlur={() => {
+            if (form.weight !== undefined && !isValidCredentialWeightDraft(form.weight)) {
+              setFieldErrors((current) => ({
+                ...current,
+                weight: t('credentialsPage.form.weightInvalid'),
+              }))
+            }
+          }}
+        />
+        {fieldErrors.weight ? (
+          <span className="text-destructive text-xs leading-5 font-normal">
+            {fieldErrors.weight}
+          </span>
+        ) : (
+          <span className="text-muted-foreground text-xs leading-5 font-normal">
+            {t('credentialsPage.form.weightHint')}
           </span>
         )}
       </label>
@@ -658,17 +1225,13 @@ function MetadataTab({
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-sm font-medium">{t('credentialsPage.form.websockets')}</p>
-            {websocketsSupported && websocketsAvailable ? (
-              <p className="text-muted-foreground mt-1 text-xs leading-5">
-                {isXaiCredential
-                  ? t('upstreamPage.drawer.metadata.websocketsXaiHint')
+            <p className="text-muted-foreground mt-1 text-xs leading-5">
+              {!websocketsSupported
+                ? t('credentialsPage.inline.websocketsUnsupported')
+                : !websocketsAvailable
+                  ? t('credentialsPage.inline.websocketsMissing')
                   : t('credentialsPage.form.websocketsHint')}
-              </p>
-            ) : !websocketsSupported ? (
-              <p className="text-muted-foreground mt-1 text-xs leading-5">
-                {t('upstreamPage.drawer.metadata.websocketsUnsupported')}
-              </p>
-            ) : null}
+            </p>
           </div>
           {websocketsSupported && websocketsAvailable ? (
             <Switch
@@ -682,30 +1245,234 @@ function MetadataTab({
           ) : (
             <span className="border-border bg-muted text-muted-foreground inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 text-[11px] font-medium">
               {websocketsSupported
-                ? t('credentialsPage.status.notAvailable')
+                ? t('credentialsPage.inline.websocketsUnknown')
                 : t('credentialsPage.inline.notApplicable')}
             </span>
           )}
         </div>
       </div>
 
+      {usingApiSupported ? (
+        <div className="bg-muted/35 rounded-md border px-3 py-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">{t('credentialsPage.form.usingApi')}</p>
+              <p className="text-muted-foreground mt-1 text-xs leading-5">
+                {t('credentialsPage.form.usingApiHint')}
+              </p>
+            </div>
+            <Switch
+              checked={Boolean(form.usingApi)}
+              disabled={mutating}
+              onCheckedChange={(checked) =>
+                handleFormChange((current) => ({ ...current, usingApi: checked }))
+              }
+              aria-label={t('credentialsPage.form.usingApi')}
+            />
+          </div>
+        </div>
+      ) : null}
+
       <div className="bg-muted/35 rounded-md border px-3 py-3">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-sm font-medium">{t('credentialsPage.form.coolingSchedule')}</p>
             <p className="text-muted-foreground mt-1 text-xs leading-5">
               {t('credentialsPage.form.coolingScheduleHint')}
             </p>
           </div>
-          <Switch
-            checked={!form.disableCooling}
-            disabled={mutating}
-            onCheckedChange={(checked) =>
-              handleFormChange((current) => ({ ...current, disableCooling: !checked }))
+          <Select
+            value={
+              form.disableCooling === null || form.disableCooling === undefined
+                ? 'inherit'
+                : form.disableCooling
+                  ? 'disabled'
+                  : 'enabled'
             }
-            aria-label={t('credentialsPage.form.coolingSchedule')}
-          />
+            disabled={mutating}
+            onValueChange={(value) =>
+              updateField('disableCooling', value === 'inherit' ? null : value === 'disabled')
+            }
+          >
+            <SelectTrigger
+              className="sm:w-44"
+              aria-label={t('credentialsPage.form.coolingSchedule')}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="inherit">
+                {t('credentialsPage.form.coolingModeInherit')}
+              </SelectItem>
+              <SelectItem value="enabled">
+                {t('credentialsPage.form.coolingModeEnabled')}
+              </SelectItem>
+              <SelectItem value="disabled">
+                {t('credentialsPage.form.coolingModeDisabled')}
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
+      </div>
+
+      <CredentialExcludedModelsField
+        value={form.excludedModelsText ?? ''}
+        disabled={mutating}
+        models={models}
+        modelsLoading={modelsLoading}
+        modelsLoaded={modelsLoaded}
+        modelsError={modelsError}
+        onFetchModels={onFetchModels}
+        onChange={(nextValue) => updateField('excludedModelsText', nextValue)}
+      />
+
+      <div className="grid gap-2 rounded-md border p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-medium">{t('credentialsPage.form.headersSection')}</p>
+            <p className="text-muted-foreground mt-0.5 text-xs leading-5">
+              {t('credentialsPage.form.headersHint')}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={mutating}
+            onClick={() =>
+              updateField('headers', [...(form.headers ?? []), { key: '', value: '' }])
+            }
+          >
+            <Plus className="size-3.5" aria-hidden="true" />
+            {t('credentialsPage.form.addHeader')}
+          </Button>
+        </div>
+        {(form.headers ?? []).length > 0 ? (
+          <div className="grid gap-2">
+            {(form.headers ?? []).map((header, index) => (
+              <div key={index} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
+                <Input
+                  value={header.key}
+                  placeholder="X-Custom-Header"
+                  disabled={mutating}
+                  className="font-mono text-xs"
+                  onChange={(event) => {
+                    const next = [...(form.headers ?? [])]
+                    next[index] = { ...header, key: event.target.value }
+                    updateField('headers', next)
+                  }}
+                />
+                <Input
+                  value={header.value}
+                  placeholder="value"
+                  disabled={mutating}
+                  className="font-mono text-xs"
+                  onChange={(event) => {
+                    const next = [...(form.headers ?? [])]
+                    next[index] = { ...header, value: event.target.value }
+                    updateField('headers', next)
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-md"
+                  disabled={mutating}
+                  aria-label={t('credentialsPage.form.removeHeader')}
+                  onClick={() =>
+                    updateField(
+                      'headers',
+                      (form.headers ?? []).filter((_, idx) => idx !== index),
+                    )
+                  }
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {fieldErrors.headers ? (
+          <span className="text-destructive text-xs leading-5 font-normal">
+            {fieldErrors.headers}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="grid gap-2 rounded-md border p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-medium">{t('credentialsPage.form.customFieldsSection')}</p>
+            <p className="text-muted-foreground mt-0.5 text-xs leading-5">
+              {t('credentialsPage.form.customFieldsHint')}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={mutating}
+            onClick={() =>
+              updateField('customFields', [...(form.customFields ?? []), { path: '', value: '' }])
+            }
+          >
+            <Plus className="size-3.5" aria-hidden="true" />
+            {t('credentialsPage.form.addCustomField')}
+          </Button>
+        </div>
+        <p className="border-warning/35 bg-warning/10 text-warning-foreground dark:text-warning rounded-md border px-2.5 py-1.5 text-xs leading-5">
+          {t('credentialsPage.form.customFieldsWarning')}
+        </p>
+        {(form.customFields ?? []).length > 0 ? (
+          <div className="grid gap-2">
+            {(form.customFields ?? []).map((entry, index) => (
+              <div key={index} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
+                <Input
+                  value={entry.path}
+                  placeholder="custom.team"
+                  disabled={mutating}
+                  className="font-mono text-xs"
+                  onChange={(event) => {
+                    const next = [...(form.customFields ?? [])]
+                    next[index] = { ...entry, path: event.target.value }
+                    updateField('customFields', next)
+                  }}
+                />
+                <Input
+                  value={entry.value}
+                  placeholder={t('credentialsPage.form.customFieldValuePlaceholder')}
+                  disabled={mutating}
+                  className="font-mono text-xs"
+                  onChange={(event) => {
+                    const next = [...(form.customFields ?? [])]
+                    next[index] = { ...entry, value: event.target.value }
+                    updateField('customFields', next)
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-md"
+                  disabled={mutating}
+                  aria-label={t('credentialsPage.form.removeCustomField')}
+                  onClick={() =>
+                    updateField(
+                      'customFields',
+                      (form.customFields ?? []).filter((_, idx) => idx !== index),
+                    )
+                  }
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {fieldErrors.customFields ? (
+          <span className="text-destructive text-xs leading-5 font-normal">
+            {fieldErrors.customFields}
+          </span>
+        ) : null}
       </div>
 
       <div className="bg-muted/35 rounded-md border px-3 py-3">
@@ -754,20 +1521,22 @@ function MetadataTab({
 }
 
 function QuotaWindowTiming({ window }: { window: QuotaWindow }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = i18n.resolvedLanguage ?? i18n.language
 
   return (
     <dl className="grid gap-x-4 gap-y-2 text-xs sm:grid-cols-2">
       <div>
         <dt className="text-muted-foreground">{t('upstreamPage.quota.window.resetAt')}</dt>
         <dd className="mt-0.5">
-          {formatCredentialDateTime(window.resetAt) ?? t('upstreamPage.quota.common.notAvailable')}
+          {formatCredentialDateTime(window.resetAt, locale) ??
+            t('upstreamPage.quota.common.notAvailable')}
         </dd>
       </div>
       <div>
         <dt className="text-muted-foreground">{t('upstreamPage.quota.window.observedAt')}</dt>
         <dd className="mt-0.5">
-          {formatCredentialDateTime(window.observedAt) ??
+          {formatCredentialDateTime(window.observedAt, locale) ??
             t('upstreamPage.quota.common.notAvailable')}
         </dd>
       </div>
@@ -775,16 +1544,28 @@ function QuotaWindowTiming({ window }: { window: QuotaWindow }) {
   )
 }
 
-function QuotaWindowDetailCard({ window }: { window: QuotaWindow }) {
+function QuotaWindowDetailCard({
+  window,
+  historical = false,
+}: {
+  window: QuotaWindow
+  historical?: boolean
+}) {
   return (
     <div className="grid gap-3 rounded-md border p-4">
-      <InlineWindowBar window={window} />
+      <InlineWindowBar window={window} historical={historical} />
       <QuotaWindowTiming window={window} />
     </div>
   )
 }
 
-function AntigravityQuotaGroups({ groups }: { groups: AntigravityQuotaGroup[] }) {
+function AntigravityQuotaGroups({
+  groups,
+  historical = false,
+}: {
+  groups: AntigravityQuotaGroup[]
+  historical?: boolean
+}) {
   const { t } = useTranslation()
 
   return (
@@ -797,7 +1578,7 @@ function AntigravityQuotaGroups({ groups }: { groups: AntigravityQuotaGroup[] })
           <div className="mt-3 divide-y">
             {group.windows.map((window) => (
               <div key={window.id} className="grid gap-2.5 py-3 first:pt-0 last:pb-0">
-                <InlineWindowBar window={window} />
+                <InlineWindowBar window={window} historical={historical} />
                 <QuotaWindowTiming window={window} />
               </div>
             ))}
@@ -808,8 +1589,15 @@ function AntigravityQuotaGroups({ groups }: { groups: AntigravityQuotaGroup[] })
   )
 }
 
-function CodexResetCreditsDetail({ resetCredits }: { resetCredits: QuotaResetCredits }) {
-  const { t } = useTranslation()
+function ResetCreditsDetail({
+  resetCredits,
+  countOnly,
+}: {
+  resetCredits: QuotaResetCredits
+  countOnly: boolean
+}) {
+  const { t, i18n } = useTranslation()
+  const locale = i18n.resolvedLanguage ?? i18n.language
   const unavailableDetailCount = Math.max(
     0,
     resetCredits.availableCount - resetCredits.credits.length,
@@ -818,11 +1606,22 @@ function CodexResetCreditsDetail({ resetCredits }: { resetCredits: QuotaResetCre
   return (
     <section className="overflow-hidden rounded-md border">
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-        <h3 className="text-sm font-semibold">{t('upstreamPage.quota.codex.resetCredits')}</h3>
+        <h3 className="text-sm font-semibold">
+          {t(
+            countOnly
+              ? 'upstreamPage.quota.claude.resetCredits'
+              : 'upstreamPage.quota.codex.resetCredits',
+          )}
+        </h3>
         <span className="bg-muted/60 text-foreground inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium tabular-nums">
-          {t('upstreamPage.quota.codex.availableResetCredits', {
-            count: resetCredits.availableCount,
-          })}
+          {t(
+            countOnly
+              ? 'upstreamPage.quota.claude.remainingResets'
+              : 'upstreamPage.quota.codex.availableResetCredits',
+            {
+              count: resetCredits.availableCount,
+            },
+          )}
         </span>
       </div>
 
@@ -839,7 +1638,7 @@ function CodexResetCreditsDetail({ resetCredits }: { resetCredits: QuotaResetCre
               <p className="text-muted-foreground text-xs tabular-nums">
                 {t('upstreamPage.quota.codex.expiresAt', {
                   time:
-                    formatCredentialDateTime(credit.expiresAt) ??
+                    formatCredentialDateTime(credit.expiresAt, locale) ??
                     t('upstreamPage.quota.common.notAvailable'),
                 })}
               </p>
@@ -852,7 +1651,7 @@ function CodexResetCreditsDetail({ resetCredits }: { resetCredits: QuotaResetCre
         </p>
       ) : null}
 
-      {unavailableDetailCount > 0 ? (
+      {!countOnly && unavailableDetailCount > 0 ? (
         <p className="text-muted-foreground border-t px-4 py-3 text-sm leading-6">
           {t('upstreamPage.quota.codex.resetCreditDetailsUnavailable', {
             count: unavailableDetailCount,
@@ -860,11 +1659,17 @@ function CodexResetCreditsDetail({ resetCredits }: { resetCredits: QuotaResetCre
         </p>
       ) : null}
 
+      {countOnly ? (
+        <p className="text-muted-foreground border-t px-4 py-3 text-sm leading-6">
+          {t('upstreamPage.quota.claude.resetCreditsHint')}
+        </p>
+      ) : null}
+
       {resetCredits.observedAt ? (
         <p className="text-muted-foreground border-t px-4 py-2 text-xs">
           {t('upstreamPage.quota.codex.observedAt', {
             time:
-              formatCredentialDateTime(resetCredits.observedAt) ??
+              formatCredentialDateTime(resetCredits.observedAt, locale) ??
               t('upstreamPage.quota.common.notAvailable'),
           })}
         </p>
@@ -873,90 +1678,118 @@ function CodexResetCreditsDetail({ resetCredits }: { resetCredits: QuotaResetCre
   )
 }
 
-function GrokQuotaDetail({ entry }: { entry: UpstreamQuotaEntry }) {
-  const { t } = useTranslation()
+export function GrokQuotaDetail({
+  entry,
+  headerAction,
+}: {
+  entry: UpstreamQuotaEntry
+  headerAction?: ReactNode
+}) {
+  const { t, i18n } = useTranslation()
+  const locale = i18n.resolvedLanguage ?? i18n.language
+  const historical = resolveQuotaSnapshotDisplay(entry).historical
   const monthlyWindow = findCurrencyWindow(entry)
   const onDemandWindow = findXaiOnDemandWindow(entry)
+  const onDemandState = resolveXaiOnDemandState(entry)
+  const productUsageWindows = findXaiProductUsageWindows(entry)
+  const detailWindows = entry.windows.filter((window) => !isXaiProductUsageWindow(window))
 
   return (
     <div className="grid gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {entry.plan ? <UpstreamQuotaPlanBadge plan={entry.plan} /> : null}
-        <UpstreamQuotaStatusBadge status={entry.status} />
-        <UpstreamQuotaMetaBadge>
-          {t(`upstreamPage.quota.freshness.${entry.freshness}`)}
-        </UpstreamQuotaMetaBadge>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <ProviderLogo providerId={entry.provider} size="lg" />
+          <QuotaSnapshotBadges entry={entry} />
+        </div>
+        {headerAction}
       </div>
+      <QuotaCollectionNotice entry={entry} />
+      {productUsageWindows.length > 0 ? (
+        <div className="grid gap-1.5 rounded-md border p-4">
+          <p className="text-sm font-medium">{t('upstreamPage.quota.xai.usageBreakdown')}</p>
+          <div className="text-muted-foreground text-meta min-w-0">
+            <XaiProductUsageList entry={entry} />
+          </div>
+        </div>
+      ) : null}
       {monthlyWindow ? (
         <div className="grid gap-2 rounded-md border p-4">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-medium">{t('upstreamPage.quota.monthlyCredits')}</p>
             <span className="text-muted-foreground text-xs">
-              {formatCredentialDateTime(monthlyWindow.resetAt) ??
+              {formatCredentialDateTime(monthlyWindow.resetAt, locale) ??
                 t('upstreamPage.quota.common.notAvailable')}
             </span>
           </div>
-          <InlineWindowBar window={monthlyWindow} label={t('upstreamPage.quota.remaining')} />
+          <InlineWindowBar
+            window={monthlyWindow}
+            historical={historical}
+            label={t('upstreamPage.quota.remaining')}
+          />
         </div>
       ) : null}
       <div className="grid gap-2 rounded-md border p-4">
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm font-medium">{t('upstreamPage.quota.onDemand')}</p>
           <span className="text-muted-foreground text-xs">
-            {onDemandWindow
-              ? t('upstreamPage.quota.onDemandEnabled')
-              : t('upstreamPage.quota.onDemandUnknown')}
+            {t(
+              onDemandState === 'enabled'
+                ? 'upstreamPage.quota.onDemandEnabled'
+                : onDemandState === 'disabled'
+                  ? 'upstreamPage.quota.onDemandDisabled'
+                  : 'upstreamPage.quota.onDemandUnknown',
+            )}
           </span>
         </div>
         {onDemandWindow ? (
-          <InlineWindowBar window={onDemandWindow} label={t('upstreamPage.quota.remaining')} />
+          <InlineWindowBar
+            window={onDemandWindow}
+            historical={historical}
+            label={t('upstreamPage.quota.remaining')}
+          />
         ) : null}
       </div>
-      {entry.windows.length > 0 ? (
+      {detailWindows.length > 0 ? (
         <div className="grid gap-3">
-          {entry.windows.map((window) => (
-            <QuotaWindowDetailCard key={window.id} window={window} />
+          {detailWindows.map((window) => (
+            <QuotaWindowDetailCard key={window.id} window={window} historical={historical} />
           ))}
         </div>
       ) : null}
+      <QuotaCollectionFacts entry={entry} />
     </div>
   )
 }
 
-export function UpstreamQuotaDetail({ item }: { item: QuotaCredential }) {
+export function UpstreamQuotaDetail({
+  item,
+  headerAction,
+}: {
+  item: QuotaCredential
+  headerAction?: ReactNode
+}) {
   const { t } = useTranslation()
+  const historical = resolveQuotaSnapshotDisplay(item).historical
   const windows = item.windows.length > 0 ? item.windows : item.primaryWindows
   const isAntigravity = item.provider.trim().toLowerCase() === 'antigravity'
-  const isCodex = item.provider.trim().toLowerCase() === 'codex'
   const antigravityPresentation = isAntigravity
     ? resolveAntigravityQuotaPresentation(item, windows)
     : null
-  const antigravityNeedsRefresh =
-    antigravityPresentation?.kind === 'collecting' || antigravityPresentation?.kind === 'legacy'
-  const displayStatus = antigravityNeedsRefresh ? 'unknown' : item.status
-  const displayFreshness = antigravityNeedsRefresh ? 'stale' : item.freshness
 
   return (
     <div className="grid gap-5">
-      <div className="flex flex-wrap items-center gap-2">
-        <ProviderLogo providerId={item.provider} size="lg" />
-        {item.plan ? <UpstreamQuotaPlanBadge plan={item.plan} /> : null}
-        <UpstreamQuotaStatusBadge status={displayStatus} />
-        <UpstreamQuotaMetaBadge>
-          {t(`upstreamPage.quota.freshness.${displayFreshness}`)}
-        </UpstreamQuotaMetaBadge>
-        <UpstreamQuotaMetaBadge>
-          {t(`upstreamPage.quota.source.${item.source}`)}
-        </UpstreamQuotaMetaBadge>
-        {isAntigravity && item.collectionStatus !== 'success' ? (
-          <UpstreamQuotaMetaBadge>
-            {t(`upstreamPage.quota.collection.${item.collectionStatus}`)}
-          </UpstreamQuotaMetaBadge>
-        ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <ProviderLogo providerId={item.provider} size="lg" />
+          <QuotaSnapshotBadges entry={item} />
+        </div>
+        {headerAction}
       </div>
 
+      <QuotaCollectionNotice entry={item} />
+
       {antigravityPresentation?.kind === 'windows' ? (
-        <AntigravityQuotaGroups groups={antigravityPresentation.groups} />
+        <AntigravityQuotaGroups groups={antigravityPresentation.groups} historical={historical} />
       ) : antigravityPresentation ? (
         <p
           className={cn(
@@ -967,7 +1800,7 @@ export function UpstreamQuotaDetail({ item }: { item: QuotaCredential }) {
           )}
         >
           {antigravityPresentation.kind === 'failed'
-            ? (item.lastError?.message ?? t('upstreamPage.quota.collectFailed'))
+            ? t('upstreamPage.quota.detail.noWindowsTitle')
             : antigravityPresentation.kind === 'collecting'
               ? t('upstreamPage.quota.antigravity.upgrading')
               : antigravityPresentation.kind === 'legacy'
@@ -977,73 +1810,27 @@ export function UpstreamQuotaDetail({ item }: { item: QuotaCredential }) {
       ) : windows.length > 0 ? (
         <div className="grid gap-3">
           {windows.map((window) => (
-            <QuotaWindowDetailCard key={window.id} window={window} />
+            <QuotaWindowDetailCard key={window.id} window={window} historical={historical} />
           ))}
         </div>
       ) : (
         <p className="text-muted-foreground rounded-md border px-3 py-2.5 text-sm">
-          {item.lastError?.message ?? t('upstreamPage.quota.detail.noWindowsTitle')}
+          {t('upstreamPage.quota.detail.noWindowsTitle')}
         </p>
       )}
 
-      {isCodex && item.resetCredits ? (
-        <CodexResetCreditsDetail resetCredits={item.resetCredits} />
+      {item.resetCredits ? (
+        <ResetCreditsDetail
+          resetCredits={item.resetCredits}
+          countOnly={item.provider === 'claude'}
+        />
+      ) : item.provider === 'claude' ? (
+        <p className="text-muted-foreground rounded-md border px-4 py-3 text-sm">
+          {t('upstreamPage.quota.claude.resetCreditsUnavailable')}
+        </p>
       ) : null}
 
-      <section>
-        <h3 className="text-sm font-semibold">{t('upstreamPage.quota.detail.collection')}</h3>
-        <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-          {[
-            [
-              t('upstreamPage.quota.detail.collectionStatus'),
-              t(`upstreamPage.quota.collection.${item.collectionStatus}`),
-            ],
-            [t('upstreamPage.quota.detail.source'), t(`upstreamPage.quota.source.${item.source}`)],
-            [
-              t('upstreamPage.quota.detail.observedAt'),
-              formatCredentialDateTime(item.observedAt) ??
-                t('upstreamPage.quota.common.notAvailable'),
-            ],
-            [
-              t('upstreamPage.quota.detail.lastAttemptAt'),
-              formatCredentialDateTime(item.lastAttemptAt) ??
-                t('upstreamPage.quota.common.notAvailable'),
-            ],
-            [
-              t('upstreamPage.quota.detail.nextProbeAt'),
-              formatCredentialDateTime(item.nextProbeAt) ??
-                t('upstreamPage.quota.common.notAvailable'),
-            ],
-            [t('upstreamPage.quota.detail.consecutiveFailures'), String(item.consecutiveFailures)],
-          ].map(([label, value]) => (
-            <div key={label} className="min-w-0 rounded-md border px-3 py-2.5">
-              <dt className="text-muted-foreground text-xs">{label}</dt>
-              <dd className="mt-1 min-w-0 truncate text-sm">{value}</dd>
-            </div>
-          ))}
-        </dl>
-        {item.lastError ? (
-          <div className="border-warning/30 bg-warning/10 mt-3 rounded-md border p-3">
-            <div className="flex items-start gap-2">
-              <AlertTriangle
-                className="text-warning-foreground dark:text-warning mt-0.5 size-4 shrink-0"
-                aria-hidden="true"
-              />
-              <div className="min-w-0">
-                <p className="text-sm font-medium">{t('upstreamPage.quota.detail.lastError')}</p>
-                <p className="text-muted-foreground mt-1 text-sm leading-6 break-words">
-                  {item.lastError.message}
-                </p>
-                {item.lastError.code ? (
-                  <p className="text-muted-foreground mt-1 font-mono text-xs">
-                    {item.lastError.code}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </section>
+      <QuotaCollectionFacts entry={item} />
     </div>
   )
 }
@@ -1051,12 +1838,20 @@ export function UpstreamQuotaDetail({ item }: { item: QuotaCredential }) {
 function CredentialQuotaTab({
   resource,
   quotaEntry,
+  quotaRecollectAvailable,
+  quotaCollecting,
+  mutating,
+  onCollectQuota,
 }: {
   resource: CredentialResource
   quotaEntry: UpstreamQuotaEntry | null
+  quotaRecollectAvailable: boolean
+  quotaCollecting: boolean
+  mutating: boolean
+  onCollectQuota: () => void
 }) {
   const { t } = useTranslation()
-  const credentialId = quotaEntry?.id ?? resource.authIndex ?? resource.name ?? resource.identifier
+  const credentialId = quotaEntry?.id ?? resource.authIndex ?? resource.identifier
   const detail = useUpstreamQuotaCredentialDetail(credentialId)
 
   if (!detail.available) {
@@ -1080,7 +1875,7 @@ function CredentialQuotaTab({
     )
   }
 
-  if (detail.isError || !detail.item) {
+  if (!detail.item) {
     return (
       <div className="border-warning/30 bg-warning/10 rounded-md border p-3 text-sm">
         <p className="font-medium">{t('upstreamPage.quota.detail.loadError')}</p>
@@ -1091,11 +1886,43 @@ function CredentialQuotaTab({
     )
   }
 
+  const action = resolveCredentialQuotaAction({
+    resource,
+    entry: detail.item,
+    available: quotaRecollectAvailable,
+    collecting: quotaCollecting,
+  })
+  const blocked = ['disabled', 'unsupported', 'unavailable'].includes(action)
   const isXai = detail.item.provider.trim().toLowerCase() === 'xai'
+  const headerAction = blocked ? (
+    <p className="text-muted-foreground text-sm">{t(`upstreamPage.quota.actions.${action}`)}</p>
+  ) : (
+    <Button
+      variant="outline"
+      disabled={mutating || action === 'collecting'}
+      onClick={onCollectQuota}
+    >
+      {action === 'collecting' ? (
+        <Loader2 className="animate-spin" aria-hidden="true" />
+      ) : (
+        <RefreshCw aria-hidden="true" />
+      )}
+      {t(`upstreamPage.quota.actions.${action}`)}
+    </Button>
+  )
 
   return (
     <div className="grid gap-4">
-      {isXai ? <GrokQuotaDetail entry={detail.item} /> : <UpstreamQuotaDetail item={detail.item} />}
+      {detail.isError ? (
+        <p role="status" className="text-warning-foreground text-sm">
+          {t('upstreamPage.quota.detail.loadError')}
+        </p>
+      ) : null}
+      {isXai ? (
+        <GrokQuotaDetail entry={detail.item} headerAction={headerAction} />
+      ) : (
+        <UpstreamQuotaDetail item={detail.item} headerAction={headerAction} />
+      )}
       <p className="text-muted-foreground rounded-md border px-3 py-2 text-xs leading-5">
         {t('upstreamPage.drawer.quota.readOnlyNote')}
       </p>
@@ -1150,6 +1977,7 @@ function ConcurrencyTab({
 function ModelsTab({
   mutating,
   models,
+  error,
   onFetchModels,
 }: {
   mutating: boolean
@@ -1159,6 +1987,7 @@ function ModelsTab({
     type: string | null
     ownedBy: string | null
   }> | null
+  error: string | null
   onFetchModels: () => Promise<void>
 }) {
   const { t } = useTranslation()
@@ -1192,6 +2021,11 @@ function ModelsTab({
               : t('credentialsPage.actions.viewModels')}
           </Button>
         </div>
+        {error ? (
+          <p role="alert" className="text-destructive mt-3 text-xs">
+            {error}
+          </p>
+        ) : null}
         {models ? (
           <div className="bg-background/70 mt-3 max-h-96 overflow-y-auto rounded-md border p-2 text-xs">
             {models.length > 0 ? (
@@ -1284,7 +2118,13 @@ export function CredentialDetailDrawer({
   tab,
   mutating,
   models,
+  exclusionModels = null,
+  modelsError = null,
+  modelsLoading = false,
   quotaEntry,
+  quotaRecollectAvailable,
+  quotaCollecting,
+  onCollectQuota,
   showConcurrency,
   observationAvailable,
   canEditConcurrency,
@@ -1305,13 +2145,14 @@ export function CredentialDetailDrawer({
   open: boolean
   tab: CredentialDrawerTab
   mutating: boolean
-  models: Array<{
-    id: string
-    displayName: string | null
-    type: string | null
-    ownedBy: string | null
-  }> | null
+  models: CredentialModelEntry[] | null
+  modelsLoading?: boolean
+  exclusionModels?: CredentialModelEntry[] | null
+  modelsError?: string | null
   quotaEntry: UpstreamQuotaEntry | null
+  quotaRecollectAvailable: boolean
+  quotaCollecting: boolean
+  onCollectQuota: () => void
   showConcurrency: boolean
   observationAvailable: boolean
   canEditConcurrency: boolean
@@ -1335,6 +2176,7 @@ export function CredentialDetailDrawer({
     getCredentialInFlightId(resource),
     canEditConcurrency && tab === 'metadata',
   )
+  const rawMetadataQuery = useCredentialRawMetadata(resource, open && tab === 'metadata')
 
   return (
     <>
@@ -1365,22 +2207,55 @@ export function CredentialDetailDrawer({
             <OverviewTab resource={resource} quotaEntry={quotaEntry} />
           </>
         ) : null}
-        {tab === 'metadata' ? (
+        {tab === 'metadata' && !resource.runtimeOnly && !rawMetadataQuery.rawMetadata ? (
+          rawMetadataQuery.errorMessage ? (
+            <div className="grid gap-3" role="alert">
+              <p className="text-destructive text-sm">{rawMetadataQuery.errorMessage}</p>
+              <Button variant="outline" onClick={() => void rawMetadataQuery.refetch()}>
+                {t('credentialsPage.error.retry')}
+              </Button>
+            </div>
+          ) : (
+            <div
+              className="grid gap-3"
+              role="status"
+              aria-label={t('credentialsPage.form.metadataLoading')}
+            >
+              <Skeleton className="h-14 w-full" />
+              <Skeleton className="h-14 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          )
+        ) : tab === 'metadata' ? (
           <MetadataTab
+            key={resource.id}
             resource={resource}
             open={open}
             mutating={mutating}
+            models={exclusionModels}
+            modelsLoaded={models !== null}
+            modelsLoading={modelsLoading}
+            modelsError={modelsError}
+            rawMetadata={rawMetadataQuery.rawMetadata}
             canEditConcurrency={canEditConcurrency}
             concurrencyPolicy={concurrencyPolicyQuery.policy}
             concurrencyPolicyPending={concurrencyPolicyQuery.isPending}
             concurrencyPolicyError={concurrencyPolicyQuery.errorMessage}
             inFlightSummary={inFlightSummary}
+            onFetchModels={onFetchModels}
             onUpdateMetadata={onUpdateMetadata}
             onToggleStatus={onToggleStatus}
           />
         ) : null}
         {tab === 'quota' ? (
-          <CredentialQuotaTab resource={resource} quotaEntry={quotaEntry} />
+          <CredentialQuotaTab
+            resource={resource}
+            quotaEntry={quotaEntry}
+            quotaRecollectAvailable={quotaRecollectAvailable}
+            quotaCollecting={quotaCollecting}
+            mutating={mutating}
+            onCollectQuota={onCollectQuota}
+          />
         ) : null}
         {tab === 'concurrency' && showConcurrency ? (
           <ConcurrencyTab
@@ -1394,7 +2269,12 @@ export function CredentialDetailDrawer({
           />
         ) : null}
         {tab === 'models' ? (
-          <ModelsTab mutating={mutating} models={models} onFetchModels={onFetchModels} />
+          <ModelsTab
+            mutating={mutating || modelsLoading}
+            models={models}
+            error={modelsError}
+            onFetchModels={onFetchModels}
+          />
         ) : null}
         {tab === 'danger' ? (
           <DangerTab mutating={mutating} onDownload={onDownload} onDelete={onDelete} />

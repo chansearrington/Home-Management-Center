@@ -8,6 +8,7 @@ export type QuotaStatus = 'healthy' | 'low' | 'exhausted' | 'unknown' | 'error' 
 export type QuotaPlan = {
   name: string
   premium: boolean
+  expiresAt?: string
 }
 
 export type QuotaResetCredit = {
@@ -401,7 +402,12 @@ function normalizeQuotaPlan(value: unknown): QuotaPlan | null {
   if (!isRecord(value)) return null
   const name = readString(value, ['name'])
   if (!name) return null
-  return { name, premium: readBoolean(value, ['premium']) ?? false }
+  const expiresAt = readString(value, ['expires_at', 'expiresAt'])
+  return {
+    name,
+    premium: readBoolean(value, ['premium']) ?? false,
+    ...(expiresAt && Number.isFinite(Date.parse(expiresAt)) ? { expiresAt } : {}),
+  }
 }
 
 function normalizeQuotaResetCredit(value: unknown): QuotaResetCredit | null {
@@ -628,11 +634,13 @@ export function normalizeQuotaSnapshot(responseData: unknown): QuotaSnapshot {
 export async function fetchQuotaSnapshot(
   session: ManagementSessionInput,
   query: QuotaListQuery,
+  signal?: AbortSignal,
 ): Promise<QuotaSnapshot> {
   const client = createManagementClient(session)
   const csv = (value: string | string[] | undefined) =>
     Array.isArray(value) ? value.join(',') : value
   const response = await client.get<unknown>('/quota/credentials', {
+    signal,
     params: {
       limit: query.limit,
       offset: query.offset,
@@ -682,10 +690,12 @@ export function normalizeQuotaCredentialDetail(responseData: unknown): QuotaCred
 export async function fetchQuotaCredentialDetail(
   session: ManagementSessionInput,
   credentialId: string,
+  signal?: AbortSignal,
 ): Promise<QuotaCredential> {
   const client = createManagementClient(session)
   const response = await client.get<unknown>(
     `/quota/credentials/${encodeURIComponent(credentialId)}`,
+    { signal },
   )
   return normalizeQuotaCredentialDetail(response.data)
 }
@@ -703,12 +713,17 @@ export type QuotaCollectResult = {
 export async function triggerQuotaCollection(
   session: ManagementSessionInput,
   input: QuotaCollectInput = {},
+  signal?: AbortSignal,
 ): Promise<QuotaCollectResult> {
   const client = createManagementClient(session)
-  const response = await client.post<unknown>('/quota/collect', {
-    credential_ids: input.credentialIds?.length ? input.credentialIds : undefined,
-    providers: input.providers?.length ? input.providers : undefined,
-  })
+  const response = await client.post<unknown>(
+    '/quota/collect',
+    {
+      credential_ids: input.credentialIds?.length ? input.credentialIds : undefined,
+      providers: input.providers?.length ? input.providers : undefined,
+    },
+    { signal },
+  )
   const root = isRecord(response.data) ? response.data : {}
   return {
     accepted: readCount(root, ['accepted'], 0),

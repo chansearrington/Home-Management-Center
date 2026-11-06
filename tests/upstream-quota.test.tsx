@@ -3,8 +3,13 @@ import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { I18nextProvider, initReactI18next } from 'react-i18next'
 
-import { UpstreamQuotaDetail } from '@/features/credentials/credential-detail-drawer'
-import { UpstreamQuotaCell } from '@/features/upstream/quota-cells'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import {
+  GrokQuotaDetail,
+  UpstreamQuotaDetail,
+} from '@/features/credentials/credential-detail-drawer'
+import { QuotaSnapshotBadges, UpstreamQuotaCell } from '@/features/upstream/quota-cells'
+import { getUpstreamQuotaErrorSummary } from '@/features/upstream/quota-format'
 import {
   type UpstreamQuotaEntry,
   buildUpstreamQuotaJoinMap,
@@ -13,10 +18,14 @@ import {
   findCurrencyWindow,
   findUpstreamQuotaEntry,
   findXaiOnDemandWindow,
+  findXaiWeeklyWindow,
   getUpstreamQuotaCollectionProgress,
   groupAntigravityQuotaWindows,
+  isCredentialQuotaCollectable,
   isQuotaAttentionEntry,
   resolveAntigravityQuotaPresentation,
+  resolveCredentialQuotaAction,
+  resolveQuotaLabelState,
   resolveUpstreamQuotaCellState,
 } from '@/features/upstream/upstream-quota-model'
 import { normalizeUpstreamRouteSearch } from '@/features/upstream/upstream-route'
@@ -40,7 +49,11 @@ beforeAll(async () => {
 })
 
 function renderWithI18n(node: React.ReactElement) {
-  return renderToStaticMarkup(<I18nextProvider i18n={testI18n}>{node}</I18nextProvider>)
+  return renderToStaticMarkup(
+    <I18nextProvider i18n={testI18n}>
+      <TooltipProvider>{node}</TooltipProvider>
+    </I18nextProvider>,
+  )
 }
 
 function createWindow(overrides: Partial<QuotaWindow> = {}): QuotaWindow {
@@ -154,6 +167,25 @@ function createXaiEntry(): UpstreamQuotaEntry {
   })
 }
 
+function createXaiWeeklyWindow(overrides: Partial<QuotaWindow> = {}): QuotaWindow {
+  return createWindow({
+    id: 'xai-weekly-usage',
+    label: 'Weekly Limit',
+    mode: 'fixed',
+    status: 'healthy',
+    unit: 'percentage',
+    used: 16,
+    remaining: 84,
+    limit: 100,
+    usedRatio: 0.16,
+    remainingRatio: 0.84,
+    periodUnit: 'week',
+    periodValue: 1,
+    resetAt: '2026-10-16T20:46:00Z',
+    ...overrides,
+  })
+}
+
 describe('quota join map', () => {
   test('joins by authIndex first, then id/identifier/name fallbacks', () => {
     const entry = createQuotaEntry({ id: 'auth-01', authIndex: 'auth-01' })
@@ -199,7 +231,7 @@ describe('quota join map', () => {
         available: true,
         loading: true,
         truncated: false,
-        map,
+        map: new Map(),
         resource,
       }).kind,
     ).toBe('loading')
@@ -415,6 +447,16 @@ describe('findCurrencyWindow', () => {
   test('returns null when the on-demand window is absent', () => {
     expect(findXaiOnDemandWindow(createQuotaEntry())).toBeNull()
   })
+
+  test('finds the weekly usage window when present', () => {
+    const entry = createQuotaEntry({
+      provider: 'xai',
+      primaryWindows: [createXaiWeeklyWindow()],
+      windows: [createXaiWeeklyWindow()],
+    })
+    expect(findXaiWeeklyWindow(entry)?.id).toBe('xai-weekly-usage')
+    expect(findXaiWeeklyWindow(createXaiEntry())).toBeNull()
+  })
 })
 
 describe('Antigravity quota grouping', () => {
@@ -468,13 +510,17 @@ describe('Antigravity quota grouping', () => {
 
 describe('UpstreamQuotaCell rendering', () => {
   test('renders grok plan and on-demand rows from real backend fields', () => {
-    const entry = createXaiEntry()
+    const entry: UpstreamQuotaEntry = {
+      ...createXaiEntry(),
+      observedAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    }
     const markup = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'entry', entry }} />)
     expect(markup).toContain('SuperGrok')
     expect(markup).toContain('$42.00')
     expect(markup).toContain('$150.00')
     expect(markup).toContain('$38.00')
     expect(markup).toContain('$50.00')
+    expect(markup).toContain('Collected 5 min. ago')
   })
 
   test('degrades to the currency window without plan or on-demand fields', () => {
@@ -491,11 +537,128 @@ describe('UpstreamQuotaCell rendering', () => {
     expect(markup).toContain('$42.00')
   })
 
+  test('renders the weekly limit with a disabled on-demand row when only the weekly window exists', () => {
+    const weekly = createXaiWeeklyWindow()
+    const productWindow = createWindow({
+      id: 'xai-product-grokbuild',
+      label: 'GrokBuild',
+      scope: 'account',
+      scopeId: 'xai-product-usage',
+      mode: 'fixed',
+      status: 'healthy',
+      unit: 'percentage',
+      used: 1,
+      remaining: 99,
+      limit: 100,
+      usedRatio: 0.01,
+      remainingRatio: 0.99,
+      periodUnit: 'week',
+      periodValue: 1,
+      priority: 20,
+    })
+    const entry = createQuotaEntry({
+      id: 'xai-01',
+      authIndex: 'xai-01',
+      provider: 'xai',
+      plan: { name: 'SuperGrok', premium: false },
+      primaryWindows: [weekly, productWindow],
+      windows: [weekly, productWindow],
+      windowCount: 2,
+    })
+    const markup = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'entry', entry }} />)
+    expect(markup).toContain('SuperGrok')
+    expect(markup).toContain('Weekly limit')
+    expect(markup).toContain('84%')
+    expect(markup).toContain('Products sharing quota: 1')
+    const detail = renderWithI18n(<GrokQuotaDetail entry={entry} />)
+    expect(detail).toContain('Usage breakdown (shared quota)')
+    expect(detail).toContain('GrokBuild usage')
+    expect(detail).toContain('GrokBuild usage')
+    expect(detail).toContain('1%')
+    expect(markup).toContain('On-demand')
+    expect(markup).toContain('Disabled')
+    expect(markup).not.toContain('Monthly')
+  })
+
+  test('marks on-demand as disabled when the monthly window exists without an on-demand window', () => {
+    const monthly = createXaiEntry().primaryWindows[0]!
+    const entry = createQuotaEntry({
+      id: 'xai-01',
+      authIndex: 'xai-01',
+      provider: 'xai',
+      primaryWindows: [monthly],
+      windows: [monthly],
+      windowCount: 1,
+    })
+    const markup = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'entry', entry }} />)
+    expect(markup).toContain('Monthly')
+    expect(markup).toContain('On-demand')
+    expect(markup).toContain('Disabled')
+  })
+
+  test('renders the weekly limit before the monthly row when all xAI windows exist', () => {
+    const base = createXaiEntry()
+    const weekly = createXaiWeeklyWindow()
+    const entry: UpstreamQuotaEntry = {
+      ...base,
+      primaryWindows: [weekly, ...base.primaryWindows],
+      windows: [weekly, ...base.windows],
+      windowCount: 3,
+    }
+    const markup = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'entry', entry }} />)
+    const weeklyIndex = markup.indexOf('Weekly limit')
+    const monthlyIndex = markup.indexOf('Monthly')
+    expect(weeklyIndex).toBeGreaterThan(-1)
+    expect(monthlyIndex).toBeGreaterThan(-1)
+    expect(weeklyIndex).toBeLessThan(monthlyIndex)
+    expect(markup).not.toContain('Disabled')
+  })
+
   test('renders generic windows for other providers', () => {
     const markup = renderWithI18n(
       <UpstreamQuotaCell state={{ kind: 'entry', entry: createQuotaEntry() }} />,
     )
     expect(markup).toContain('82%')
+  })
+
+  test('marks meta and muse credentials as quota collectable and renders Meta plan and windows (#197)', async () => {
+    await testI18n.changeLanguage('en')
+    expect(
+      isCredentialQuotaCollectable({ provider: 'meta', disabled: false, status: 'active' }),
+    ).toBe(true)
+    expect(
+      isCredentialQuotaCollectable({ provider: 'muse', disabled: false, status: 'active' }),
+    ).toBe(true)
+
+    const metaWindow = createWindow({
+      id: 'meta-window',
+      label: 'Window',
+      periodUnit: 'hour',
+      periodValue: 5,
+      remainingRatio: 0.98,
+    })
+    const metaWeekly = createWindow({
+      id: 'meta-weekly',
+      label: 'Weekly limit',
+      periodUnit: 'week',
+      periodValue: 1,
+      remainingRatio: 0.75,
+    })
+    const entry = createQuotaEntry({
+      id: 'meta-01',
+      authIndex: 'meta-01',
+      provider: 'meta',
+      plan: { name: 'Muse Code Everyday Usage', premium: false },
+      primaryWindows: [metaWindow, metaWeekly],
+      windows: [metaWindow, metaWeekly],
+      windowCount: 2,
+    })
+    const markup = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'entry', entry }} />)
+    expect(markup).toContain('Muse Code Everyday Usage')
+    expect(markup).toContain('5 hours')
+    expect(markup).toContain('98%')
+    expect(markup).toContain('Weekly')
+    expect(markup).toContain('75%')
   })
 
   test('renders Codex plan and keeps account and model weekly limits distinguishable', async () => {
@@ -537,7 +700,8 @@ describe('UpstreamQuotaCell rendering', () => {
     expect(markup).toContain('Weekly')
     expect(markup).toContain('91%')
     expect(markup).toContain('100%')
-    expect(markup).toContain('+1 more')
+    expect(markup).toContain('82%')
+    expect(markup.match(/role="progressbar"/g)).toHaveLength(3)
   })
 
   test('localizes the generic Codex usage label and formats 300 minutes as 5 hours', async () => {
@@ -570,8 +734,8 @@ describe('UpstreamQuotaCell rendering', () => {
     const entry = createQuotaEntry({ collectionStatus: 'partial' })
 
     const markup = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'entry', entry }} />)
-    expect(markup).toContain('Healthy')
-    expect(markup).toContain('Partially collected')
+    expect(markup).not.toContain('Quota healthy')
+    expect(markup).toContain('Partial collection')
   })
 
   test('renders Antigravity Free quota as two weekly groups', async () => {
@@ -630,7 +794,7 @@ describe('UpstreamQuotaCell rendering', () => {
     expect(markup).toContain('5 hours')
     expect(markup).toContain('70%')
     expect(markup).toContain('40%')
-    expect(markup).toContain('+2 more')
+    expect(markup.match(/role="progressbar"/g)).toHaveLength(2)
   })
 
   test('supports an asymmetric optional 5-hour bucket', async () => {
@@ -658,7 +822,7 @@ describe('UpstreamQuotaCell rendering', () => {
     const markup = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'entry', entry }} />)
     expect(markup).toContain('5 hours')
     expect(markup).toContain('Weekly')
-    expect(markup).toContain('+1 more')
+    expect(markup.match(/role="progressbar"/g)).toHaveLength(2)
   })
 
   test('keeps Antigravity partial collection visible', async () => {
@@ -685,8 +849,8 @@ describe('UpstreamQuotaCell rendering', () => {
     })
 
     const markup = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'entry', entry }} />)
-    expect(markup).toContain('Healthy')
-    expect(markup).toContain('Partially collected')
+    expect(markup).not.toContain('Quota healthy')
+    expect(markup).toContain('Partial collection')
   })
 
   test('does not present legacy Antigravity scopes as healthy empty quota', async () => {
@@ -699,10 +863,8 @@ describe('UpstreamQuotaCell rendering', () => {
     })
 
     const markup = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'entry', entry }} />)
-    expect(markup).toContain('Unknown')
-    expect(markup).toContain('Stale')
-    expect(markup).toContain('older or unrecognized format')
-    expect(markup).not.toContain('Healthy')
+    expect(markup).toContain('Recollect needed')
+    expect(markup).not.toContain('Quota healthy')
     expect(markup).not.toContain('No quota windows')
   })
 
@@ -740,16 +902,14 @@ describe('UpstreamQuotaCell rendering', () => {
     const collectingMarkup = renderWithI18n(
       <UpstreamQuotaCell state={{ kind: 'entry', entry: collecting }} />,
     )
-    expect(collectingMarkup).toContain('Collecting in background')
-    expect(collectingMarkup).toContain('Refreshing Antigravity quota')
+    expect(collectingMarkup).toContain('Collecting')
     expect(collectingMarkup).not.toContain('Healthy')
 
     const failedMarkup = renderWithI18n(
       <UpstreamQuotaCell state={{ kind: 'entry', entry: failed }} />,
     )
-    expect(failedMarkup).toContain('Query failed')
-    expect(failedMarkup).toContain('Collection failed')
-    expect(failedMarkup).toContain('upgrade failed')
+    expect(failedMarkup).toContain('Quota query failed')
+    expect(failedMarkup).not.toContain('upgrade failed')
   })
 
   test('shows a genuinely never-collected Antigravity credential as not collected', async () => {
@@ -773,13 +933,345 @@ describe('UpstreamQuotaCell rendering', () => {
     await testI18n.changeLanguage('en')
 
     const notCollected = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'not-collected' }} />)
-    expect(notCollected).toContain('Not collected')
+    expect(notCollected).toContain('No quota record')
 
     const absent = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'capability-absent' }} />)
-    expect(absent).toContain('Unsupported')
+    expect(absent).toContain('Query unsupported')
 
     const loading = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'loading' }} />)
     expect(loading).toContain('data-slot="skeleton"')
+  })
+})
+
+describe('quota summary hierarchy', () => {
+  test.each(['healthy', 'low', 'exhausted'] as const)(
+    'does not duplicate %s quota levels in the labels row',
+    async (status) => {
+      await testI18n.changeLanguage('en')
+      const entry = createQuotaEntry({ status, plan: { name: 'Pro', premium: false } })
+      expect(resolveQuotaLabelState(entry)).toBeNull()
+      const labels = renderWithI18n(<QuotaSnapshotBadges entry={entry} />)
+      expect(labels).toContain('Pro plan')
+      expect(labels).not.toContain('<svg')
+      expect(labels).not.toContain('Quota healthy')
+      expect(labels).not.toContain('Quota low')
+      expect(labels).not.toContain('Quota exhausted')
+      expect(renderWithI18n(<QuotaSnapshotBadges entry={{ ...entry, plan: null }} />)).toBe('')
+    },
+  )
+
+  test('chooses one exceptional label even when collection, failure and staleness overlap', () => {
+    const failed = createQuotaEntry({ collectionStatus: 'failed', freshness: 'stale' })
+    expect(resolveQuotaLabelState(failed)).toBe('failed')
+    expect(resolveQuotaLabelState(failed, { collecting: true })).toBe('collecting')
+    expect(resolveQuotaLabelState({ ...failed, status: 'unsupported' }, { collecting: true })).toBe(
+      'unsupported',
+    )
+    expect(resolveQuotaLabelState({ ...failed, collectionStatus: 'partial' })).toBe('partial')
+    expect(resolveQuotaLabelState(failed, { readFailed: true })).toBe('read-error')
+  })
+
+  test('does not describe a failed record read as a credential that has never been collected', async () => {
+    await testI18n.changeLanguage('en')
+    const state = resolveUpstreamQuotaCellState({
+      available: true,
+      loading: false,
+      truncated: false,
+      readFailed: true,
+      map: new Map(),
+      resource: { id: 'auth-01', authIndex: 'auth-01', identifier: 'auth-01', name: 'auth-01' },
+    })
+    expect(state.kind).toBe('read-error')
+    const markup = renderWithI18n(<UpstreamQuotaCell state={state} />)
+    expect(markup).toContain('Quota read failed')
+    expect(markup).not.toContain('Not collected')
+    expect(markup).not.toContain('role="progressbar"')
+  })
+
+  test('keeps unknown reset time independent from a valid collection', async () => {
+    await testI18n.changeLanguage('en')
+    const entry = createQuotaEntry({
+      observedAt: new Date(Date.now() - 300_000).toISOString(),
+      expiresAt: new Date(Date.now() + 1_800_000).toISOString(),
+    })
+    const markup = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'entry', entry }} />)
+    expect(markup).toContain('Reset time unknown')
+    expect(markup).toContain('Collected 5 min. ago')
+    expect(markup).not.toContain('Recollect needed')
+  })
+
+  test('requests a new collection without discarding a known future reset time', async () => {
+    await testI18n.changeLanguage('en')
+    const window = createWindow({ resetAt: new Date(Date.now() + 7_200_000).toISOString() })
+    const entry = createQuotaEntry({
+      primaryWindows: [window],
+      windows: [window],
+      observedAt: new Date(Date.now() - 39_600_000).toISOString(),
+      expiresAt: new Date(Date.now() - 60_000).toISOString(),
+    })
+    const markup = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'entry', entry }} />)
+    expect(markup).toContain('Recollect needed')
+    expect(markup).toContain('Resets ')
+    expect(markup).not.toContain('Reset time unknown')
+  })
+
+  test('distinguishes a first collection from an attempted collection with no result', async () => {
+    await testI18n.changeLanguage('en')
+    const never = createQuotaEntry({
+      status: 'unknown',
+      freshness: 'never',
+      observedAt: null,
+      lastAttemptAt: null,
+      primaryWindows: [],
+      windows: [],
+      windowCount: 0,
+    })
+    const first = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'entry', entry: never }} />)
+    expect(first).toContain('Not collected yet')
+    expect(first).toContain('Reset time unknown')
+    expect(first).not.toContain('role="progressbar"')
+    const attempted = renderWithI18n(
+      <UpstreamQuotaCell
+        state={{
+          kind: 'entry',
+          entry: { ...never, collectionStatus: 'failed', lastAttemptAt: new Date().toISOString() },
+        }}
+      />,
+    )
+    expect(attempted).toContain('Quota query failed')
+    expect(attempted).toContain('No collection result')
+    expect(attempted).not.toContain('Not collected yet')
+  })
+
+  test('keeps the collection timestamp concise when displayed values have expired', async () => {
+    await testI18n.changeLanguage('en')
+    const entry = createQuotaEntry({
+      freshness: 'stale',
+      observedAt: new Date(Date.now() - 39_600_000).toISOString(),
+    })
+    const markup = renderWithI18n(
+      <UpstreamQuotaCell
+        state={{ kind: 'entry', entry }}
+        unavailableReason="Active collection is unavailable on this backend."
+      />,
+    )
+    const timeLabel = markup.match(/<time\b[^>]*aria-label="([^"]*)"/)?.[1]
+    expect(timeLabel).toContain('Collected at:')
+    expect(timeLabel).not.toContain('validity period')
+    expect(timeLabel).not.toContain('Active collection is unavailable')
+  })
+
+  test('keeps a hidden exhausted window discoverable after removing quota-level labels', async () => {
+    await testI18n.changeLanguage('en')
+    const windows = [
+      createWindow({ id: 'visible-1', scope: 'model', scopeId: 'model-1' }),
+      createWindow({ id: 'visible-2', scope: 'model', scopeId: 'model-2' }),
+      createWindow({
+        id: 'hidden',
+        scope: 'model',
+        scopeId: 'model-3',
+        status: 'exhausted',
+        remainingRatio: 0,
+      }),
+    ]
+    const entry = createQuotaEntry({
+      status: 'exhausted',
+      primaryWindows: windows.slice(0, 2),
+      windows,
+      windowCount: 3,
+    })
+    const markup = renderWithI18n(
+      <UpstreamQuotaCell state={{ kind: 'entry', entry }} onInspect={() => undefined} />,
+    )
+    expect(markup.match(/role="progressbar"/g)).toHaveLength(2)
+    expect(markup).toContain('Another quota window is exhausted')
+    expect(markup).toContain('Quota details (3 windows)')
+  })
+
+  test('caps a large model collection at two preview bars with an actionable total', async () => {
+    await testI18n.changeLanguage('en')
+    const windows = Array.from({ length: 10 }, (_, index) =>
+      createWindow({
+        id: `model-${index}`,
+        scope: 'model',
+        scopeId: `model-${index}`,
+        label: `Model ${index}`,
+      }),
+    )
+    const entry = createQuotaEntry({
+      primaryWindows: windows.slice(0, 2),
+      windows,
+      windowCount: 10,
+    })
+    const markup = renderWithI18n(
+      <UpstreamQuotaCell state={{ kind: 'entry', entry }} onInspect={() => undefined} />,
+    )
+    expect(markup.match(/role="progressbar"/g)).toHaveLength(2)
+    expect(markup).toContain('aria-label="Quota details (10 windows)"')
+    expect(markup).toContain('<button')
+    expect(markup).toContain('Model 0')
+    expect(markup).toContain('Model 1')
+    expect(markup).not.toContain('Model 2')
+    expect(markup).not.toContain('+8 more')
+  })
+
+  test('caps xAI at two bars even when weekly, monthly and on-demand windows exist', async () => {
+    await testI18n.changeLanguage('en')
+    const entry = createXaiEntry()
+    entry.windows.unshift(createXaiWeeklyWindow())
+    entry.windowCount = 3
+    const markup = renderWithI18n(
+      <UpstreamQuotaCell state={{ kind: 'entry', entry }} onInspect={() => undefined} />,
+    )
+    expect(markup.match(/role="progressbar"/g)).toHaveLength(2)
+    expect(markup).toContain('aria-label="Quota details (3 windows)"')
+    expect(markup).toContain('On-demand: Enabled')
+  })
+
+  test('shows five-hour and constrained weekly quotas together without hiding either', async () => {
+    await testI18n.changeLanguage('en')
+    const fiveHour = createWindow({
+      id: 'antigravity-gemini-5h',
+      scopeId: 'gemini',
+      remainingRatio: 0.88,
+    })
+    const weekly = createWindow({
+      id: 'antigravity-gemini-weekly',
+      scopeId: 'gemini',
+      status: 'low',
+      periodUnit: 'week',
+      periodValue: 1,
+      remainingRatio: 0.12,
+    })
+    const thirdParty = createWindow({
+      id: 'antigravity-3p-5h',
+      scopeId: 'third-party',
+      remainingRatio: 1,
+    })
+    const entry = createQuotaEntry({
+      provider: 'antigravity',
+      status: 'low',
+      primaryWindows: [fiveHour, thirdParty],
+      windows: [fiveHour, weekly, thirdParty],
+      windowCount: 3,
+    })
+    const markup = renderWithI18n(
+      <UpstreamQuotaCell state={{ kind: 'entry', entry }} onInspect={() => undefined} />,
+    )
+    expect(markup.match(/role="progressbar"/g)).toHaveLength(3)
+    expect(markup).toContain('12%')
+    expect(markup).toContain('100%')
+    expect(markup).toContain('88%')
+    expect(markup).toContain('Weekly')
+  })
+
+  test('distinguishes old quota data from its independently presented plan', async () => {
+    await testI18n.changeLanguage('en')
+    const entry = createQuotaEntry({ freshness: 'stale', plan: { name: 'Ultra', premium: true } })
+    const markup = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'entry', entry }} />)
+    expect(resolveQuotaLabelState(entry)).toBe('outdated')
+    expect(markup).toContain('Recollect needed')
+    expect(markup).not.toContain('Quota healthy')
+    expect(markup.indexOf('Ultra plan')).toBeLessThan(markup.indexOf('Recollect needed'))
+    const noData = renderWithI18n(
+      <UpstreamQuotaCell
+        state={{
+          kind: 'entry',
+          entry: createQuotaEntry({
+            status: 'unknown',
+            windows: [],
+            primaryWindows: [],
+            windowCount: 0,
+          }),
+        }}
+      />,
+    )
+    expect(noData).toContain('No data yet')
+    expect(noData).not.toContain('Recollect needed')
+  })
+
+  test('retains fresh values after a failed refresh without invalidating freshness or exposing raw errors', async () => {
+    await testI18n.changeLanguage('en')
+    const entry = createQuotaEntry({
+      collectionStatus: 'failed',
+      lastError: {
+        code: 'UPSTREAM_AUTH_REJECTED',
+        message: 'Upstream rejected the credential.',
+        retryable: true,
+        occurredAt: null,
+        upstreamStatusCode: 401,
+        requestId: null,
+      },
+    })
+    const markup = renderWithI18n(
+      <UpstreamQuotaCell state={{ kind: 'entry', entry }} onInspect={() => undefined} />,
+    )
+    expect(markup).not.toContain('Recollect needed')
+    expect(markup).toContain('82%')
+    expect(markup).toContain('Quota query failed')
+    expect(markup).toContain('Quota query failed. Show explanation')
+    expect(markup).not.toContain(entry.lastError!.message)
+    expect(markup).not.toContain('Quota healthy')
+    const detail = renderWithI18n(<UpstreamQuotaDetail item={entry} />)
+    expect(detail.indexOf('Quota query unauthorized')).toBeLessThan(
+      detail.indexOf('role="progressbar"'),
+    )
+    expect(detail).toContain('This describes the quota query only, not the outcome of model calls.')
+    expect(detail).toContain('Technical details')
+  })
+
+  test('uses structured errors rather than guessing the meaning of raw error text', async () => {
+    await testI18n.changeLanguage('en')
+    const entry = createQuotaEntry({
+      lastError: {
+        code: 'NEW_CODE',
+        message: 'Upstream rejected the credential.',
+        retryable: true,
+        occurredAt: null,
+        upstreamStatusCode: null,
+        requestId: null,
+      },
+    })
+    expect(getUpstreamQuotaErrorSummary(entry, testI18n.t).title).toBe('Quota query failed')
+    entry.lastError!.upstreamStatusCode = 429
+    expect(getUpstreamQuotaErrorSummary(entry, testI18n.t).title).toBe('Quota query rate limited')
+  })
+
+  test('does not announce an unavailable percentage as zero', async () => {
+    await testI18n.changeLanguage('en')
+    const entry = createQuotaEntry({
+      primaryWindows: [createWindow({ remainingRatio: null })],
+      windows: [],
+    })
+    const markup = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'entry', entry }} />)
+    expect(markup).toContain('aria-valuetext="Not available"')
+    expect(markup).not.toContain('aria-valuenow="0"')
+  })
+
+  test('distinguishes unlimited quota from a missing percentage', async () => {
+    await testI18n.changeLanguage('en')
+    const window = createWindow({ remainingRatio: null, isUnlimited: true })
+    const entry = createQuotaEntry({ primaryWindows: [window], windows: [window] })
+    const markup = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'entry', entry }} />)
+    expect(markup).toContain('aria-valuetext="Unlimited"')
+    expect(markup).toContain('∞')
+    expect(markup).not.toContain('aria-valuenow="0"')
+  })
+
+  test('labels the time of the displayed quota without replacing it with a failed attempt time', async () => {
+    await testI18n.changeLanguage('en')
+    const observedAt = '2026-11-01T08:00:00Z'
+    const lastAttemptAt = '2026-11-05T10:00:00Z'
+    const entry = createQuotaEntry({
+      observedAt,
+      lastAttemptAt,
+      collectionStatus: 'failed',
+    })
+    const markup = renderWithI18n(<UpstreamQuotaCell state={{ kind: 'entry', entry }} />)
+    expect(markup).toContain(`dateTime="${observedAt}"`)
+    expect(markup).toContain('Collected ')
+    expect(markup).toContain('Collected at:')
+    expect(markup).not.toContain(lastAttemptAt)
   })
 })
 
@@ -858,6 +1350,76 @@ describe('UpstreamQuotaDetail rendering', () => {
     expect(markup).toContain('Reset credit 1')
     expect(markup).toContain('1 more reset credits')
   })
+
+  test('shows Claude reset counts separately from plan multipliers', async () => {
+    await testI18n.changeLanguage('en')
+    const item = createQuotaEntry({
+      provider: 'claude',
+      plan: { name: 'Max 20x', premium: true },
+      resetCredits: {
+        availableCount: 3,
+        observedAt: '2026-10-20T00:00:00Z',
+        credits: [],
+      },
+    })
+    const markup = renderWithI18n(<UpstreamQuotaDetail item={item} />)
+    expect(markup).toContain('Max 20x')
+    expect(markup).toContain('Remaining limit resets')
+    expect(markup).toContain('3 remaining')
+    expect(markup).not.toContain('expiry details')
+    expect(markup).not.toContain('Reset credit 1')
+
+    const unknown = renderWithI18n(<UpstreamQuotaDetail item={{ ...item, resetCredits: null }} />)
+    expect(unknown).toContain('Remaining limit resets are not available')
+    expect(unknown).not.toContain('0 remaining')
+    const zero = renderWithI18n(
+      <UpstreamQuotaDetail
+        item={{ ...item, resetCredits: { ...item.resetCredits!, availableCount: 0 } }}
+      />,
+    )
+    expect(zero).toContain('0 remaining')
+  })
+})
+
+describe('GrokQuotaDetail rendering', () => {
+  test('marks on-demand as disabled when weekly or monthly windows exist without one', async () => {
+    await testI18n.changeLanguage('en')
+    const weekly = createXaiWeeklyWindow()
+    const entry = createQuotaEntry({
+      provider: 'xai',
+      plan: { name: 'SuperGrok', premium: false },
+      primaryWindows: [weekly],
+      windows: [weekly],
+      windowCount: 1,
+    })
+
+    const markup = renderWithI18n(
+      <GrokQuotaDetail entry={entry} headerAction={<button type="button">Refresh quota</button>} />,
+    )
+    expect(markup).toContain('data-provider-icon="xai"')
+    expect(markup).toContain('SuperGrok')
+    expect(markup).toContain('Refresh quota')
+    expect(markup).toContain('Response header')
+    expect(markup).toContain('On-demand')
+    expect(markup).toContain('Disabled')
+    expect(markup).not.toContain('Not provided')
+    expect(markup).toContain('84%')
+  })
+
+  test('keeps on-demand as not provided when no known window exists', async () => {
+    await testI18n.changeLanguage('en')
+    const entry = createQuotaEntry({
+      provider: 'xai',
+      primaryWindows: [],
+      windows: [],
+      windowCount: 0,
+    })
+
+    const markup = renderWithI18n(<GrokQuotaDetail entry={entry} />)
+    expect(markup).toContain('On-demand')
+    expect(markup).toContain('Not provided')
+    expect(markup).not.toContain('Disabled')
+  })
 })
 
 describe('normalizeUpstreamRouteSearch', () => {
@@ -876,5 +1438,59 @@ describe('normalizeUpstreamRouteSearch', () => {
   test('keeps the q filter', () => {
     expect(normalizeUpstreamRouteSearch({ q: 'kimi' }).q).toBe('kimi')
     expect(normalizeUpstreamRouteSearch({ q: '  ' }).q).toBeUndefined()
+  })
+})
+
+describe('credential quota action states', () => {
+  const resource = { provider: 'meta', disabled: false, status: 'active' }
+  const decide = (entry: UpstreamQuotaEntry | null, overrides = {}) =>
+    resolveCredentialQuotaAction({ resource, entry, available: true, ...overrides })
+  test('offers collection for an existing never-collected backend entry', () => {
+    expect(
+      decide(
+        createQuotaEntry({
+          provider: 'meta',
+          status: 'unknown',
+          freshness: 'never',
+          collectionStatus: 'idle',
+          lastAttemptAt: null,
+          primaryWindows: [],
+          windows: [],
+          windowCount: 0,
+        }),
+      ),
+    ).toBe('collect')
+    expect(decide(null)).toBe('collect')
+  })
+  test('offers refresh or retry and blocks local and remote duplicate collection', () => {
+    expect(decide(createQuotaEntry())).toBe('refresh')
+    expect(decide(createQuotaEntry({ collectionStatus: 'failed' }))).toBe('retry')
+    expect(decide(createQuotaEntry({ collectionStatus: 'partial' }))).toBe('retry')
+    expect(decide(createQuotaEntry({ collectionStatus: 'collecting' }))).toBe('collecting')
+    expect(decide(null, { collecting: true })).toBe('collecting')
+  })
+  test('honors capabilities, disabled and unsupported credentials without blocking execution cooldown', () => {
+    expect(decide(null, { available: false })).toBe('unavailable')
+    expect(decide(null, { resource: { ...resource, disabled: true } })).toBe('disabled')
+    expect(decide(createQuotaEntry({ credentialStatus: 'disabled' }))).toBe('disabled')
+    expect(decide(createQuotaEntry({ credentialType: 'provider_api_key' }))).toBe('unsupported')
+    expect(decide(createQuotaEntry({ collectionStatus: 'unsupported' }))).toBe('unsupported')
+    expect(
+      decide(createQuotaEntry({ credentialStatus: 'cooldown' }), {
+        resource: { ...resource, status: 'error' },
+      }),
+    ).toBe('refresh')
+  })
+  test('keeps an existing quota visible during background refresh', () => {
+    const entry = createQuotaEntry()
+    expect(
+      resolveUpstreamQuotaCellState({
+        available: true,
+        loading: true,
+        truncated: false,
+        map: buildUpstreamQuotaJoinMap([entry]),
+        resource: { id: entry.id, authIndex: entry.authIndex, name: null, identifier: entry.id },
+      }),
+    ).toEqual({ kind: 'entry', entry })
   })
 })

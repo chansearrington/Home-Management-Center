@@ -7,6 +7,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import {
   type CredentialInFlightAvailability,
   CredentialInFlightCell,
+  resolveInFlightLimit,
 } from '@/features/credentials/credential-in-flight-cell'
 import {
   type CredentialInFlightSummary,
@@ -70,6 +71,20 @@ function render(summary: CredentialInFlightSummary | null, availability = availa
 }
 
 describe('credential in-flight cell states', () => {
+  test('keeps an authoritative unlimited policy instead of the stale list cap', () => {
+    for (const version of [0, 7]) {
+      const summary = snapshot(3)
+      summary.policyVersion = version
+      expect(render(summary)).toContain('3/∞')
+      expect(render(summary)).not.toContain('3/6')
+    }
+  })
+
+  test('uses the list model cap only when policy authority is absent', () => {
+    expect(resolveInFlightLimit(true, null, 4)).toBeNull()
+    expect(resolveInFlightLimit(false, null, 4)).toBe(4)
+    expect(resolveInFlightLimit(true, 2, 4)).toBe(2)
+  })
   test('keeps a failed first snapshot distinct from zero', () => {
     const markup = render(null, { ...available, errorMessage: 'Unavailable' })
     expect(markup).toContain(copy.cellUnavailable)

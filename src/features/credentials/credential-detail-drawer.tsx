@@ -27,7 +27,7 @@ import {
   DrawerScaffoldFooter,
   DrawerScaffoldHeader,
 } from '@/components/shared/drawer-scaffold'
-import { fieldClassName } from '@/components/shared/form-layout'
+import { fieldClassName, keyValueActionRowClassName } from '@/components/shared/form-layout'
 import { ProviderLogo } from '@/components/shared/provider-logo'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -1350,7 +1350,7 @@ function MetadataTab({
         {(form.headers ?? []).length > 0 ? (
           <div className="grid gap-2">
             {(form.headers ?? []).map((header, index) => (
-              <div key={index} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
+              <div key={index} className={keyValueActionRowClassName}>
                 <Input
                   value={header.key}
                   placeholder="X-Custom-Header"
@@ -1426,7 +1426,7 @@ function MetadataTab({
         {(form.customFields ?? []).length > 0 ? (
           <div className="grid gap-2">
             {(form.customFields ?? []).map((entry, index) => (
-              <div key={index} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
+              <div key={index} className={keyValueActionRowClassName}>
                 <Input
                   value={entry.path}
                   placeholder="custom.team"

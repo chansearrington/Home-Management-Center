@@ -24,6 +24,9 @@ const fieldClassName = 'grid gap-1.5 text-sm font-medium'
  */
 const formGridClassName = 'grid gap-3 sm:grid-cols-2'
 
+/** A key/value pair with its row action, stacked on a narrow viewport. */
+const keyValueActionRowClassName = 'grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-center'
+
 /**
  * A filter row above a table. Denser than a form grid because filters are short
  * and scanned together, and it keeps climbing past `sm` because a filter row is
@@ -67,6 +70,7 @@ export {
   filterRowClassName,
   flexibleFilterFieldClassName,
   formGridClassName,
+  keyValueActionRowClassName,
   narrowFilterGridClassName,
   narrowFilterGridWithActionsClassName,
 }

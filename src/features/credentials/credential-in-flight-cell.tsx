@@ -20,6 +20,14 @@ function formatLimit(limit: number | null | undefined) {
   return typeof limit === 'number' && limit > 0 ? String(limit) : '∞'
 }
 
+export function resolveInFlightLimit(
+  authoritative: boolean,
+  current: number | null | undefined,
+  fallback: number | null | undefined,
+) {
+  return authoritative ? current : (current ?? fallback)
+}
+
 export function CredentialInFlightCell({
   resource,
   summary,
@@ -76,8 +84,9 @@ export function CredentialInFlightCell({
     : stale
       ? t('credentialsPage.concurrency.cellStale')
       : null
+  const authoritative = typeof summary?.policyVersion === 'number'
   const totalLabel = known
-    ? `${Math.max(...counts)}/${formatLimit(summary?.maxInFlight ?? resource.maxInFlight)}`
+    ? `${Math.max(...counts)}/${formatLimit(resolveInFlightLimit(authoritative, summary?.maxInFlight, resource.maxInFlight))}`
     : '—'
   const saturated = summary?.totalSaturated || (summary?.saturatedModelCount ?? 0) > 0
   const StatusIcon =
@@ -133,7 +142,13 @@ export function CredentialInFlightCell({
             <span className="min-w-0 font-mono break-all">{item.model}</span>
             <span className="shrink-0 font-mono tabular-nums">
               {item.count}/
-              {formatLimit(item.maxInFlight ?? resource.maxInFlightByModel?.[item.model])}
+              {formatLimit(
+                resolveInFlightLimit(
+                  authoritative,
+                  item.maxInFlight,
+                  resource.maxInFlightByModel?.[item.model],
+                ),
+              )}
             </span>
           </div>
         ))}

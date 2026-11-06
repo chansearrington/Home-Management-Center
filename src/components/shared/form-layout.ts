@@ -62,7 +62,25 @@ const filterActionsClassName = 'flex flex-col gap-2 sm:flex-row sm:items-center'
 const filterRowClassName = 'flex flex-col gap-2 sm:flex-row sm:items-center'
 const flexibleFilterFieldClassName = 'min-w-0 sm:flex-1'
 
+/** Dense provider option pairs and request-error controls. */
+const compactFormGridClassName = 'grid gap-2 sm:grid-cols-2'
+const denseFormGridClassName = 'grid gap-1 sm:grid-cols-2'
+const keyValueActionEndRowClassName = 'grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end'
+const errorRuleRowClassName = 'grid gap-2 sm:grid-cols-[7rem_1fr_auto] sm:items-end'
+const priceBandFormRowClassName =
+  'grid gap-2 rounded-md border p-2 sm:grid-cols-[8rem_7rem_minmax(9rem,1fr)_7rem_auto] sm:items-end'
+const priceTargetFormRowClassName =
+  'grid gap-2 rounded-md border p-2 sm:grid-cols-[minmax(10rem,0.8fr)_minmax(14rem,1.2fr)_auto] sm:items-end'
+const priceImportFilterRowClassName = 'grid gap-2 sm:grid-cols-[minmax(0,1fr)_14rem_auto_auto]'
+
 export {
+  compactFormGridClassName,
+  denseFormGridClassName,
+  keyValueActionEndRowClassName,
+  errorRuleRowClassName,
+  priceBandFormRowClassName,
+  priceTargetFormRowClassName,
+  priceImportFilterRowClassName,
   fieldClassName,
   filterActionsClassName,
   filterGridClassName,

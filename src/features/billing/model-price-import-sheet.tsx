@@ -22,7 +22,13 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { DrawerScaffoldBody, DrawerScaffoldFooter } from '@/components/shared/drawer-scaffold'
-import { formGridClassName } from '@/components/shared/form-layout'
+import {
+  denseFormGridClassName,
+  formGridClassName,
+  priceBandFormRowClassName,
+  priceImportFilterRowClassName,
+  priceTargetFormRowClassName,
+} from '@/components/shared/form-layout'
 import { OverflowTooltipText } from '@/components/shared/overflow-tooltip-text'
 import { ContainedTable } from '@/components/shared/table-surface'
 import {
@@ -1202,7 +1208,7 @@ export function ModelPriceImportSheet({
           </div>
           {targetFilter === 'selected' ? (
             <div className="max-h-44 overflow-y-auto rounded-md border p-2">
-              <div className="grid gap-1 sm:grid-cols-2">
+              <div className={denseFormGridClassName}>
                 {candidates
                   .filter(
                     (candidate) =>
@@ -1398,10 +1404,7 @@ export function ModelPriceImportSheet({
                     </Button>
                   </div>
                   {policy.rules.map((rule, index) => (
-                    <div
-                      key={rule.id}
-                      className="grid gap-2 rounded-md border p-2 sm:grid-cols-[8rem_7rem_minmax(9rem,1fr)_7rem_auto] sm:items-end"
-                    >
+                    <div key={rule.id} className={priceBandFormRowClassName}>
                       <label className="grid gap-1 text-xs">
                         <span className="text-muted-foreground">
                           {t('billingPage.prices.import.ruleLabel')}
@@ -1530,10 +1533,7 @@ export function ModelPriceImportSheet({
                   </div>
                   <div className="grid max-h-72 gap-2 overflow-y-auto pr-1">
                     {policy.aliases.map((alias) => (
-                      <div
-                        key={alias.id}
-                        className="grid gap-2 rounded-md border p-2 sm:grid-cols-[minmax(10rem,0.8fr)_minmax(14rem,1.2fr)_auto] sm:items-end"
-                      >
+                      <div key={alias.id} className={priceTargetFormRowClassName}>
                         <label className="grid gap-1 text-xs">
                           <span className="text-muted-foreground">
                             {t('billingPage.prices.import.aliasTarget')}
@@ -1782,7 +1782,7 @@ export function ModelPriceImportSheet({
             </p>
           ) : null}
 
-          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_14rem_auto_auto]">
+          <div className={priceImportFilterRowClassName}>
             <div className="relative">
               <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
               <Input

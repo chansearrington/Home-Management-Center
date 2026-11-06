@@ -20,7 +20,12 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { TableEmptyState } from '@/components/shared/empty-state'
-import { fieldClassName } from '@/components/shared/form-layout'
+import {
+  compactFormGridClassName,
+  errorRuleRowClassName,
+  fieldClassName,
+  keyValueActionEndRowClassName,
+} from '@/components/shared/form-layout'
 import { ProviderLogo } from '@/components/shared/provider-logo'
 import { RowActions } from '@/components/shared/row-actions'
 import { useSecondaryColumns } from '@/components/shared/table-columns'
@@ -1869,7 +1874,7 @@ export function ProviderFormPanel({
                     }}
                   />
                 </label>
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className={compactFormGridClassName}>
                   <div className="grid gap-1 text-xs font-medium">
                     <div className="flex items-center justify-between gap-1">
                       <span>{t('providersPage.form.proxyUrl')}</span>
@@ -2703,7 +2708,7 @@ export function ProviderFormPanel({
 
             {modelsList.map((model, index) => (
               <div key={index} className="grid gap-3 rounded-md border p-3">
-                <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                <div className={keyValueActionEndRowClassName}>
                   <label className="grid gap-1.5 text-xs font-medium">
                     <span>{t('providersPage.form.modelName')}</span>
                     <Input
@@ -2740,7 +2745,7 @@ export function ProviderFormPanel({
                   </Button>
                 </div>
 
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className={compactFormGridClassName}>
                   <label className="grid gap-1.5 text-xs font-medium">
                     <span>{t('providersPage.form.modelDisplayName')}</span>
                     <Input
@@ -2868,7 +2873,7 @@ export function ProviderFormPanel({
                           </span>
                         </span>
                       </label>
-                      <div className="grid gap-2 sm:grid-cols-2">
+                      <div className={compactFormGridClassName}>
                         <label className="grid gap-1.5 text-xs font-medium">
                           <span>{t('providersPage.form.modelInputModalities')}</span>
                           <Input
@@ -2944,7 +2949,7 @@ export function ProviderFormPanel({
                           })}
                         </div>
                       </div>
-                      <div className="grid gap-2 sm:grid-cols-2">
+                      <div className={compactFormGridClassName}>
                         <label className="grid gap-1 text-xs font-medium">
                           <span>{t('providersPage.form.modelThinkingMin')}</span>
                           <Input
@@ -3054,7 +3059,7 @@ export function ProviderFormPanel({
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-3 grid gap-3">
             {headersList.map((header, index) => (
-              <div key={index} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+              <div key={index} className={keyValueActionEndRowClassName}>
                 <label className="grid gap-1.5 text-xs font-medium">
                   <span>{t('providersPage.form.headerName')}</span>
                   <Input
@@ -3122,7 +3127,7 @@ export function ProviderFormPanel({
             <CollapsibleContent className="mt-3 grid gap-3">
               {(form.requestScopedErrors ?? []).map((rule, index) => (
                 <div key={index} className="grid gap-2.5 rounded-md border p-3">
-                  <div className="grid gap-2 sm:grid-cols-[7rem_1fr_auto] sm:items-end">
+                  <div className={errorRuleRowClassName}>
                     <label className="grid gap-1 text-xs font-medium">
                       <span>{t('providersPage.form.requestScopedErrorCode')}</span>
                       <Input
@@ -3183,7 +3188,7 @@ export function ProviderFormPanel({
                       <X className="size-4" aria-hidden="true" />
                     </Button>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className={compactFormGridClassName}>
                     <label className="grid gap-1 text-xs font-medium">
                       <span>{t('providersPage.form.requestScopedErrorKeywords')}</span>
                       <Textarea

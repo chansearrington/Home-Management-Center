@@ -31,7 +31,7 @@ import {
   DrawerScaffoldHeader,
 } from '@/components/shared/drawer-scaffold'
 import { TableEmptyState } from '@/components/shared/empty-state'
-import { fieldClassName } from '@/components/shared/form-layout'
+import { fieldClassName, keyValueActionRowClassName } from '@/components/shared/form-layout'
 import { PageHeader } from '@/components/shared/page-header'
 import { RowActions } from '@/components/shared/row-actions'
 import { useSecondaryColumns } from '@/components/shared/table-columns'
@@ -1072,10 +1072,7 @@ export function PluginConfigSheet({
                   {customEntries.length > 0 ? (
                     <div className="grid gap-2">
                       {customEntries.map((entry, idx) => (
-                        <div
-                          key={idx}
-                          className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-center"
-                        >
+                        <div key={idx} className={keyValueActionRowClassName}>
                           <Input
                             value={entry.key}
                             placeholder="option-key"

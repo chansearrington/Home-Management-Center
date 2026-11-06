@@ -25,13 +25,14 @@ export function getCredentialProviderLabel(t: TranslationFn, provider: string | 
   return t(translationKey, { defaultValue: provider ?? normalizedProvider })
 }
 
-export function formatCredentialDateTime(value: string | null) {
-  if (!value) return null
+export function formatCredentialDateTime(value: string | null, locale?: string) {
+  const timestamp = Date.parse(value ?? '')
+  if (!Number.isFinite(timestamp)) return null
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',
-  }).format(new Date(value))
+  }).format(timestamp)
 }
 
 export function formatCredentialBytes(value: number | null) {
@@ -45,10 +46,4 @@ export function getCredentialDisplayName(resource: CredentialResource) {
   return (
     resource.label ?? resource.email ?? resource.account ?? resource.name ?? resource.identifier
   )
-}
-
-export function getCredentialStatusTone(resource: CredentialResource) {
-  if (resource.disabled || resource.unavailable) return 'warning'
-  if (resource.status === 'active') return 'positive'
-  return 'neutral'
 }

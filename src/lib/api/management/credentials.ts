@@ -7,16 +7,44 @@ type UnknownRecord = Record<string, unknown>
 
 export type CredentialStatusFilter = 'all' | 'active' | 'disabled' | 'unavailable'
 
+export const MAX_CREDENTIAL_WEIGHT = 1_000_000
+
+const RESERVED_METADATA_FIELDS = new Set([
+  'id',
+  'uuid',
+  'auth_index',
+  'authindex',
+  'index',
+  'name',
+  'file',
+  'filename',
+  'version',
+  'max_in_flight',
+  'max_in_flight_by_model',
+])
+
+export function isEditableCredentialMetadataPath(path: string) {
+  const parts = path.split('.').map((part) => part.trim())
+  return parts.every(Boolean) && !RESERVED_METADATA_FIELDS.has(parts[0].toLowerCase())
+}
+
 export type CredentialMetadataInput = {
   prefix: string
   proxyUrl: string
   // An empty string leaves priority unchanged; null clears it back to unset.
   priority: string | null
+  // null clears weight back to default; integer sets explicit routing weight.
+  weight?: number | null
   // An empty string leaves requestRetry unchanged; null clears it back to unset.
   requestRetry?: string | null
   note: string
   websockets?: boolean
-  disableCooling?: boolean
+  usingApi?: boolean
+  // null clears the override and inherits the global setting.
+  disableCooling?: boolean | null
+  headers?: Record<string, string>
+  excludedModels?: string[] | null
+  customFields?: Record<string, unknown>
   maxInFlight?: number | null
   maxInFlightByModel?: Record<string, number>
   concurrencyVersion?: number
@@ -103,12 +131,17 @@ export type CredentialResource = {
   failed: number | null
   path: string | null
   priority: number | null
+  weight?: number | null
   requestRetry: number | null
   note: string | null
   prefix: string | null
   proxyUrl: string | null
   websockets: boolean
+  usingApi?: boolean
   disableCooling: boolean
+  disableCoolingOverride?: boolean | null
+  headers?: Record<string, string>
+  excludedModels?: string[]
   metadataAvailability: CredentialMetadataAvailability
   maxInFlight: number | null
   maxInFlightByModel: Record<string, number>
@@ -143,6 +176,7 @@ type VertexImportResponse = {
 
 type CredentialModelResponse = {
   models?: unknown[]
+  exclusion_models?: unknown[] | null
 }
 
 type CredentialUploadResponse = {
@@ -267,15 +301,15 @@ type CredentialOAuthStartResult = {
   state: string | null
 }
 
-const oauthRoutes: Record<CredentialOAuthProvider, string> = {
-  claude: '/anthropic-auth-url',
-  codex: '/codex-auth-url',
-  antigravity: '/antigravity-auth-url',
-  kimi: '/kimi-auth-url',
-  xai: '/xai-auth-url',
-}
+const credentialOAuthAuthUrlPath = '/oauth/auth-url'
 
-const credentialOAuthProviders = Object.keys(oauthRoutes) as CredentialOAuthProvider[]
+const credentialOAuthProviders: CredentialOAuthProvider[] = [
+  'claude',
+  'codex',
+  'antigravity',
+  'kimi',
+  'xai',
+]
 
 export function getCredentialOAuthProviders(runtimeMode: RuntimeMode) {
   return runtimeMode === 'cpa'
@@ -471,7 +505,7 @@ function normalizeCredentialProvider(value: string | null | undefined) {
 }
 
 // WebSocket metadata is writable for Codex and xAI (Grok) credentials. Keep this in
-// sync with the backend auth-files field whitelist; other providers ignore the field.
+// sync with the backend credentials field whitelist; other providers ignore the field.
 export function supportsCredentialWebsockets(
   resource: Pick<CredentialResource, 'provider' | 'type'>,
 ) {
@@ -480,6 +514,13 @@ export function supportsCredentialWebsockets(
     (value) =>
       value === 'codex' || value === 'codex-api-key' || value === 'xai' || value === 'xai-api-key',
   )
+}
+
+export function supportsCredentialUsingApi(
+  resource: Pick<CredentialResource, 'provider' | 'type'>,
+) {
+  const candidates = [resource.provider, resource.type].map(normalizeCredentialProvider)
+  return candidates.some((value) => value === 'xai')
 }
 
 function readNestedFlexibleBoolean(record: UnknownRecord, rootKey: string, key: string) {
@@ -512,6 +553,19 @@ function readCredentialWebsockets(record: UnknownRecord) {
   )
 }
 
+export function readCredentialUsingApi(record: UnknownRecord) {
+  return (
+    readFlexibleBoolean(record, 'using_api') ??
+    readFlexibleBoolean(record, 'using-api') ??
+    readFlexibleBoolean(record, 'usingApi') ??
+    readNestedFlexibleBoolean(record, 'attributes', 'using_api') ??
+    readNestedFlexibleBoolean(record, 'attributes', 'using-api') ??
+    readNestedFlexibleBoolean(record, 'metadata', 'using_api') ??
+    readNestedFlexibleBoolean(record, 'metadata', 'using-api') ??
+    false
+  )
+}
+
 function readCredentialRequestRetry(record: UnknownRecord): number | null {
   return (
     readNonNegativeInteger(record, 'request-retry') ??
@@ -524,17 +578,81 @@ function readCredentialRequestRetry(record: UnknownRecord): number | null {
   )
 }
 
-// The serializer emits `disable-cooling` only when the override is set, so an
-// absent field means cooling stays enabled. The override is true-only on the
-// backend; we read both spellings plus nested metadata for forward safety.
-function readCredentialDisableCooling(record: UnknownRecord) {
+export function readCredentialDisableCoolingOverride(record: UnknownRecord): boolean | null {
   return (
     readFlexibleBoolean(record, 'disable-cooling') ??
     readFlexibleBoolean(record, 'disable_cooling') ??
     readNestedFlexibleBoolean(record, 'metadata', 'disable-cooling') ??
     readNestedFlexibleBoolean(record, 'metadata', 'disable_cooling') ??
-    false
+    null
   )
+}
+
+function readCredentialDisableCooling(record: UnknownRecord) {
+  return readCredentialDisableCoolingOverride(record) ?? false
+}
+
+export function readCredentialWeight(record: UnknownRecord): number | null {
+  const candidates = [
+    record.weight,
+    isRecord(record.metadata) ? record.metadata.weight : undefined,
+    isRecord(record.attributes) ? record.attributes.weight : undefined,
+  ]
+  for (const candidate of candidates) {
+    if (
+      typeof candidate === 'number' &&
+      Number.isSafeInteger(candidate) &&
+      candidate >= 0 &&
+      candidate <= MAX_CREDENTIAL_WEIGHT
+    ) {
+      return candidate
+    }
+    if (typeof candidate === 'string' && /^\+?\d+$/.test(candidate.trim())) {
+      const parsed = Number(candidate.trim())
+      if (Number.isSafeInteger(parsed) && parsed >= 0 && parsed <= MAX_CREDENTIAL_WEIGHT) {
+        return parsed
+      }
+    }
+  }
+  return null
+}
+
+export function readCredentialHeaders(record: UnknownRecord): Record<string, string> {
+  const source = isRecord(record.headers)
+    ? record.headers
+    : isRecord(record.metadata) && isRecord(record.metadata.headers)
+      ? record.metadata.headers
+      : null
+  if (!source) return {}
+  return Object.entries(source).reduce<Record<string, string>>((acc, [key, value]) => {
+    const trimmedKey = key.trim()
+    if (!trimmedKey || typeof value !== 'string') return acc
+    const trimmedValue = value.trim()
+    if (!trimmedValue) return acc
+    acc[trimmedKey] = trimmedValue
+    return acc
+  }, {})
+}
+
+export function readCredentialExcludedModels(record: UnknownRecord): string[] {
+  const source =
+    record.excluded_models ??
+    record['excluded-models'] ??
+    (isRecord(record.metadata)
+      ? (record.metadata.excluded_models ?? record.metadata['excluded-models'])
+      : undefined)
+  if (!Array.isArray(source)) return []
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const item of source) {
+    if (typeof item !== 'string') continue
+    const trimmed = item.trim()
+    const key = trimmed.toLowerCase()
+    if (!trimmed || seen.has(key)) continue
+    seen.add(key)
+    result.push(trimmed)
+  }
+  return result
 }
 
 function isAbsoluteUrl(value: string) {
@@ -669,6 +787,7 @@ export function normalizeCredentialResource(
     failed: readNumber(record, 'failed'),
     path: readString(record, 'path'),
     priority: readNumber(record, 'priority'),
+    weight: readCredentialWeight(record),
     requestRetry: readCredentialRequestRetry(record),
     note: readString(record, 'note'),
     prefix: readString(record, 'prefix') ?? readNestedString(record, 'metadata', 'prefix'),
@@ -678,7 +797,11 @@ export function normalizeCredentialResource(
       readNestedString(record, 'metadata', 'proxy_url') ??
       readNestedString(record, 'metadata', 'proxy-url'),
     websockets: readCredentialWebsockets(record),
+    usingApi: readCredentialUsingApi(record),
     disableCooling: readCredentialDisableCooling(record),
+    disableCoolingOverride: readCredentialDisableCoolingOverride(record),
+    headers: readCredentialHeaders(record),
+    excludedModels: readCredentialExcludedModels(record),
     metadataAvailability: {
       prefix: hasOwn(record, 'prefix') || hasNestedField(record, 'metadata', 'prefix'),
       proxyUrl:
@@ -1167,15 +1290,48 @@ function createFieldsPayload(resource: CredentialResource, input: CredentialMeta
     }
   }
 
+  if (input.weight === null) {
+    payload.weight = null
+  } else if (
+    typeof input.weight === 'number' &&
+    Number.isSafeInteger(input.weight) &&
+    input.weight <= MAX_CREDENTIAL_WEIGHT
+  ) {
+    payload.weight = input.weight
+  }
+
   if (supportsCredentialWebsockets(resource) && typeof input.websockets === 'boolean') {
     payload.websockets = input.websockets
   }
 
-  // Home reads the cooling override from the `disable_cooling` auth metadata key
-  // (the arbitrary-nested-path channel of /auth-files/fields); the override is
-  // true-only, so writing false clears it and re-enables central cooldown.
-  if (typeof input.disableCooling === 'boolean') {
+  if (supportsCredentialUsingApi(resource) && typeof input.usingApi === 'boolean') {
+    payload.using_api = input.usingApi
+  }
+
+  if (input.disableCooling === null) {
+    payload['disable-cooling'] = null
+    payload.disable_cooling = null
+  } else if (typeof input.disableCooling === 'boolean') {
     payload.disable_cooling = input.disableCooling
+  }
+
+  if (input.headers !== undefined) {
+    payload.headers = input.headers
+  }
+
+  if (input.excludedModels !== undefined) {
+    payload.excluded_models = input.excludedModels
+  }
+
+  if (input.customFields) {
+    for (const [rawPath, value] of Object.entries(input.customFields)) {
+      const path = rawPath.trim()
+      if (!path) continue
+      if (!isEditableCredentialMetadataPath(path)) {
+        throw new Error('Credential selectors and concurrency fields cannot be edited as metadata')
+      }
+      payload[path] = value
+    }
   }
 
   if (input.maxInFlight !== undefined) {
@@ -1199,7 +1355,7 @@ export async function fetchCredentialSnapshot(
   session: ManagementSessionInput,
 ): Promise<CredentialsSnapshot> {
   const client = createManagementClient(session)
-  const response = await client.get<unknown>('/auth-files')
+  const response = await client.get<unknown>('/credentials')
 
   return {
     fetchedAt: new Date().toISOString(),
@@ -1434,7 +1590,7 @@ export async function updateCredentialStatus(
   disabled: boolean,
 ) {
   const client = createManagementClient(session)
-  await client.patch('/auth-files/status', {
+  await client.patch('/credentials/status', {
     name: getStatusSelector(resource),
     disabled,
   })
@@ -1446,7 +1602,7 @@ export async function updateCredentialMetadata(
   input: CredentialMetadataPatch,
 ) {
   const client = createManagementClient(session)
-  await client.patch('/auth-files/fields', createFieldsPayload(resource, input))
+  await client.patch('/credentials/fields', createFieldsPayload(resource, input))
 }
 
 // The cooldown route is keyed by the stable Home auth UUID (`id`), not the
@@ -1491,7 +1647,7 @@ export async function deleteCredentialResource(
   resource: CredentialResource,
 ) {
   const client = createManagementClient(session)
-  await client.delete('/auth-files', {
+  await client.delete('/credentials', {
     params: resource.selector,
   })
 }
@@ -1505,7 +1661,7 @@ export async function uploadCredentialFile(
   const formData = new FormData()
   formData.append('file', file)
 
-  const response = await client.post<CredentialUploadResponse>('/auth-files', formData, {
+  const response = await client.post<CredentialUploadResponse>('/credentials', formData, {
     onUploadProgress: (event: AxiosProgressEvent) => {
       const ratio =
         event.progress ??
@@ -1531,12 +1687,29 @@ export async function uploadCredentialFile(
   }
 }
 
+export async function fetchCredentialRawMetadata(
+  session: ManagementSessionInput,
+  resource: CredentialResource,
+): Promise<UnknownRecord> {
+  const client = createManagementClient(session)
+  const response = await client.get<unknown>('/credentials/download', {
+    params: createDownloadParams(resource),
+  })
+  if (typeof response.data === 'string') {
+    const parsed: unknown = JSON.parse(response.data)
+    if (isRecord(parsed)) return parsed
+  } else if (isRecord(response.data)) {
+    return response.data
+  }
+  throw new Error('Credential metadata must be a JSON object')
+}
+
 export async function downloadCredentialResource(
   session: ManagementSessionInput,
   resource: CredentialResource,
 ) {
   const client = createManagementClient(session)
-  const response = await client.get<Blob>('/auth-files/download', {
+  const response = await client.get<Blob>('/credentials/download', {
     params: createDownloadParams(resource),
     responseType: 'blob',
   })
@@ -1547,25 +1720,42 @@ export async function downloadCredentialResource(
   }
 }
 
+function normalizeCredentialModels(models: unknown): CredentialModel[] {
+  return Array.isArray(models)
+    ? models.filter(isRecord).flatMap((record) => {
+        const id = readString(record, 'id')?.trim()
+        return id
+          ? [
+              {
+                id,
+                displayName: readString(record, 'display_name'),
+                type: readString(record, 'type'),
+                ownedBy: readString(record, 'owned_by'),
+              },
+            ]
+          : []
+      })
+    : []
+}
+
 export async function fetchCredentialModels(
   session: ManagementSessionInput,
   resource: CredentialResource,
-): Promise<CredentialModel[]> {
+  signal?: AbortSignal,
+) {
   const client = createManagementClient(session)
-  const response = await client.get<CredentialModelResponse>('/auth-files/models', {
-    params: {
-      name: getStatusSelector(resource),
-    },
+  const response = await client.get<CredentialModelResponse>('/credentials/models', {
+    params: { name: getStatusSelector(resource) },
+    signal,
   })
 
-  return Array.isArray(response.data.models)
-    ? response.data.models.filter(isRecord).map((record) => ({
-        id: readString(record, 'id') ?? 'unknown',
-        displayName: readString(record, 'display_name'),
-        type: readString(record, 'type'),
-        ownedBy: readString(record, 'owned_by'),
-      }))
-    : []
+  return {
+    models: normalizeCredentialModels(response.data.models),
+    // Older servers return only routed IDs, which cannot safely become exclusion rules.
+    exclusionModels: Array.isArray(response.data.exclusion_models)
+      ? normalizeCredentialModels(response.data.exclusion_models)
+      : null,
+  }
 }
 
 export async function startCredentialOAuth(
@@ -1573,20 +1763,13 @@ export async function startCredentialOAuth(
   input: CredentialOAuthStartInput,
 ): Promise<CredentialOAuthStartResult> {
   const client = createManagementClient(session)
-  const response = await client.get<OAuthUrlResponse>(
-    input.credentialId ? '/oauth/auth-url' : oauthRoutes[input.provider],
-    {
-      ...(input.credentialId
-        ? { baseURL: client.defaults.baseURL?.replace('/v0/management', '/v8/management') }
-        : {}),
-      params: {
-        is_webui: true,
-        ...(input.credentialId
-          ? { provider: input.provider, credential_id: input.credentialId }
-          : {}),
-      },
+  const response = await client.get<OAuthUrlResponse>(credentialOAuthAuthUrlPath, {
+    params: {
+      provider: input.provider,
+      is_webui: true,
+      credential_id: input.credentialId,
     },
-  )
+  })
 
   if (!response.data.url) {
     throw new Error('OAuth URL was not returned')
@@ -1612,7 +1795,7 @@ export async function fetchCredentialOAuthStatus(
   state?: string,
 ): Promise<CredentialOAuthStatus> {
   const client = createManagementClient(session)
-  const response = await client.get<OAuthStatusResponse>('/get-auth-status', {
+  const response = await client.get<OAuthStatusResponse>('/oauth/status', {
     params: {
       state: state?.trim() || undefined,
     },
@@ -1629,7 +1812,7 @@ export async function submitCredentialOAuthCallback(
   input: CredentialOAuthCallbackInput,
 ) {
   const client = createManagementClient(session)
-  await client.post('/oauth-callback', createOAuthCallbackPayload(input))
+  await client.post('/oauth/callback', createOAuthCallbackPayload(input))
 }
 
 export async function importVertexCredential(
@@ -1645,7 +1828,9 @@ export async function importVertexCredential(
     formData.append('location', location)
   }
 
-  const response = await client.post<VertexImportResponse>('/vertex/import', formData)
+  const response = await client.post<VertexImportResponse>('/oauth/import', formData, {
+    params: { provider: 'vertex' },
+  })
 
   return {
     status: response.data.status ?? 'unknown',

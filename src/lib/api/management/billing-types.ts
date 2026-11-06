@@ -47,6 +47,8 @@ export type ModelPriceSnapshot = {
   cacheReadPricePerMillion: number
   cacheWritePricePerMillion: number
   requestPrice: number
+  modelSource: BillingModelSource | null
+  priceModelSource: string | null
   requestedServiceTier: string | null
   responseServiceTier: string | null
   serviceTierSource: BillingServiceTierSource | null
@@ -85,6 +87,10 @@ export type ChargeRecord = {
   inputTokens: number
   outputTokens: number
   cacheTokens: number
+  // Canonical cache read/write buckets; null when the backend has no complete
+  // v2 accounting for the charge, in which case clients show cacheTokens.
+  cacheReadTokens: number | null
+  cacheWriteTokens: number | null
   amount: number
   balanceBefore: number
   balanceAfter: number
@@ -139,18 +145,23 @@ export type BillingFilters = {
   model: string
 }
 
+export type BillingModelSource = 'request' | 'response'
 export type BillingServiceTierSource = 'request' | 'response'
 
 export type BillingSettings = {
+  modelSource: BillingModelSource
   serviceTierSource: BillingServiceTierSource
   reportTimezone: string
+  publicModelPricing?: boolean
   supported: boolean
   raw: unknown
 }
 
 export type BillingSettingsUpdate = {
+  modelSource?: BillingModelSource
   serviceTierSource?: BillingServiceTierSource
   reportTimezone?: string
+  publicModelPricing?: boolean
 }
 
 export type BillingTierDiagnostics = {

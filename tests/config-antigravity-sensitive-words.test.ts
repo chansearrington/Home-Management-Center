@@ -1,6 +1,7 @@
 import axios, { type AxiosAdapter, type AxiosRequestConfig } from 'axios'
 import { afterEach, describe, expect, test } from 'bun:test'
 
+import { sectionDefinitions } from '../src/features/config/config-workbench-page'
 import {
   applyConfigChange,
   fetchConfigSnapshot,
@@ -60,10 +61,15 @@ function createManagementAdapter(responseFor: (method: string, pathname: string)
 }
 
 describe('Antigravity sensitive words configuration', () => {
-  test('normalizeConfigValues extracts antigravity.sensitive-words as JSON array', () => {
+  test('normalizeConfigValues extracts oauth.providers.antigravity.sensitive-words as JSON array', () => {
     const values = normalizeConfigValues({
-      antigravity: {
-        'sensitive-words': ['API', 'proxy', 'secret'],
+      'config-version': 8,
+      oauth: {
+        providers: {
+          antigravity: {
+            'sensitive-words': ['API', 'proxy', 'secret'],
+          },
+        },
       },
     })
 
@@ -79,34 +85,34 @@ describe('Antigravity sensitive words configuration', () => {
     expect(JSON.parse(values.antigravitySensitiveWordsJson as string)).toEqual([])
   })
 
-  test('fetchConfigSnapshot fetches and merges /antigravity endpoint', async () => {
+  test('fetchConfigSnapshot reads a single GET /config v8 tree', async () => {
     const { requests, session } = createManagementAdapter((method, pathname) => {
-      if (pathname === '/config') return {}
-      if (pathname === '/port') return { port: 8317 }
-      if (pathname === '/oauth-excluded-models') return { 'oauth-excluded-models': {} }
-      if (pathname === '/oauth-model-alias') return { 'oauth-model-alias': {} }
-      if (pathname === '/payload') return { payload: {} }
-      if (pathname === '/antigravity') {
+      if (pathname === '/config') {
         return {
-          antigravity: {
-            'sensitive-words': ['API', 'proxy'],
+          'config-version': 8,
+          oauth: {
+            providers: {
+              antigravity: {
+                'sensitive-words': ['API', 'proxy'],
+              },
+            },
           },
         }
       }
-      if (pathname === '/config.yaml') return ''
       return {}
     })
 
     const snapshot = await fetchConfigSnapshot(session)
 
-    expect(requests.some((req) => req.pathname === '/antigravity')).toBe(true)
+    expect(requests).toHaveLength(1)
+    expect(requests[0]).toEqual({ method: 'GET', pathname: '/config', body: null })
     expect(JSON.parse(snapshot.structured.antigravitySensitiveWordsJson as string)).toEqual([
       'API',
       'proxy',
     ])
   })
 
-  test('applyConfigChange sends PUT /antigravity when words are configured', async () => {
+  test('applyConfigChange sends PUT /config/oauth/providers/antigravity/sensitive-words with a bare array', async () => {
     const { requests, session } = createManagementAdapter(() => ({ status: 'ok' }))
 
     await applyConfigChange(session, {
@@ -118,16 +124,12 @@ describe('Antigravity sensitive words configuration', () => {
     expect(requests).toHaveLength(1)
     expect(requests[0]).toEqual({
       method: 'PUT',
-      pathname: '/antigravity',
-      body: {
-        antigravity: {
-          'sensitive-words': ['API', 'proxy'],
-        },
-      },
+      pathname: '/config/oauth/providers/antigravity/sensitive-words',
+      body: ['API', 'proxy'],
     })
   })
 
-  test('applyConfigChange sends DELETE /antigravity when words are empty', async () => {
+  test('applyConfigChange writes an empty array when words are cleared', async () => {
     const { requests, session } = createManagementAdapter(() => ({ status: 'ok' }))
 
     await applyConfigChange(session, {
@@ -138,9 +140,9 @@ describe('Antigravity sensitive words configuration', () => {
 
     expect(requests).toHaveLength(1)
     expect(requests[0]).toEqual({
-      method: 'DELETE',
-      pathname: '/antigravity',
-      body: null,
+      method: 'PUT',
+      pathname: '/config/oauth/providers/antigravity/sensitive-words',
+      body: [],
     })
   })
 
@@ -165,4 +167,94 @@ describe('Antigravity sensitive words configuration', () => {
       expect(config.antigravitySensitiveWords.count).toBeTruthy()
     }
   })
+
+  test('groups oauth.providers.codex and oauth.providers.antigravity under oauthProviders (#192)', () => {
+    const sectionIds = sectionDefinitions.map((section) => section.id)
+    expect(sectionIds).toContain('oauthProviders')
+    expect(sectionIds).not.toContain('liveMediaRelay')
+    expect(sectionIds).not.toContain('antigravity')
+    expect(sectionIds).not.toContain('quota')
+
+    const oauthProvidersSection = sectionDefinitions.find(
+      (section) => section.id === 'oauthProviders',
+    )
+    expect(oauthProvidersSection).toBeDefined()
+
+    const devinFields = oauthProvidersSection?.fields.filter((field) => field.groupId === 'devin')
+    const liveMediaRelayFields = oauthProvidersSection?.fields.filter(
+      (field) => field.groupId === 'liveMediaRelay',
+    )
+    const antigravityFields = oauthProvidersSection?.fields.filter(
+      (field) => field.groupId === 'antigravity',
+    )
+    expect(devinFields?.map((field) => field.key)).toEqual(['devinSensitiveWordsJson'])
+    expect(liveMediaRelayFields?.map((field) => field.key)).toEqual([
+      'liveMediaRelayEnabled',
+      'liveMediaRelayMaxSessions',
+      'liveMediaRelayDisablePrivateRemoteIps',
+      'liveMediaRelayPublicIp',
+      'liveMediaRelayUdpPortMin',
+      'liveMediaRelayUdpPortMax',
+      'liveMediaRelayIceServersJson',
+    ])
+    expect(antigravityFields?.map((field) => field.key)).toEqual([
+      'antigravitySensitiveWordsJson',
+      'antigravityCredits',
+      'antigravitySignatureCacheEnabled',
+      'antigravitySignatureBypassStrict',
+      'antigravityConnPoolEnabled',
+      'antigravityConnPoolIdleTimeout',
+      'antigravityConnPoolMaxIdleConnsPerHost',
+    ])
+  })
+
+  test('omits CPA settings that are invalid in Home mode (#194)', () => {
+    const removedFieldKeys = [
+      'remoteManagementDisableAutoUpdatePanel',
+      'remoteManagementPanelGithubRepository',
+      'saveCooldownStatus',
+      'transientErrorCooldownSeconds',
+      'oauthAuthAutoRefreshWorkers',
+      'aistudioWsAuth',
+      'quotaSwitchProject',
+      'quotaSwitchPreviewModel',
+      'usageStatisticsEnabled',
+    ]
+    const allDefinedKeys = sectionDefinitions.flatMap((section) =>
+      section.fields.map((field) => field.key),
+    )
+    const normalizedValues = normalizeConfigValues({}) as Record<string, unknown>
+
+    for (const key of removedFieldKeys) {
+      expect(allDefinedKeys).not.toContain(key)
+      expect(normalizedValues).not.toHaveProperty(key)
+    }
+  })
+
+  test('uses sticky session wording in Chinese locales and preserves configPage locale symmetry (#191)', () => {
+    expect(zhCN.common.configPage.fields.sessionAffinity.label).toBe('粘性会话')
+    expect(zhCN.common.configPage.fields.sessionAffinityTtl.label).toBe('粘性会话有效期')
+    expect(zhCN.common.configPage.fields.sessionAffinitySubagents.label).toBe('子代理粘性会话')
+    expect(zhCN.common.configPage.sections.streaming.description).toContain('粘性会话')
+
+    expect(zhTW.common.configPage.fields.sessionAffinity.label).toBe('粘性會話')
+    expect(zhTW.common.configPage.fields.sessionAffinityTtl.label).toBe('粘性會話有效期')
+    expect(zhTW.common.configPage.fields.sessionAffinitySubagents.label).toBe('子代理粘性會話')
+
+    const expectedKeys = flattenKeys(en.common.configPage)
+    for (const locale of [zhCN.common.configPage, zhTW.common.configPage, ru.common.configPage]) {
+      expect(flattenKeys(locale)).toEqual(expectedKeys)
+    }
+  })
 })
+
+function flattenKeys(value: unknown, prefix = '', output: string[] = []) {
+  if (value === null || typeof value !== 'object') {
+    output.push(prefix)
+    return output
+  }
+  for (const [key, nested] of Object.entries(value)) {
+    flattenKeys(nested, prefix ? `${prefix}.${key}` : key, output)
+  }
+  return output.sort()
+}

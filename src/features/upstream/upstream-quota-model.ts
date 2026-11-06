@@ -7,11 +7,11 @@ export type UpstreamQuotaCellState =
   | { kind: 'capability-absent' }
   | { kind: 'loading' }
   | { kind: 'not-collected' }
-  // The credential is past the risk-sorted snapshot page the console fetched, so
-  // its quota exists on the backend but was not loaded — not the same as a
-  // credential that was never collected.
+  | { kind: 'read-error' }
+  // A truncated snapshot list cannot tell whether an unloaded credential has
+  // already been collected; its detail endpoint supplies the current state.
   | { kind: 'snapshot-miss' }
-  | { kind: 'entry'; entry: UpstreamQuotaEntry }
+  | { kind: 'entry'; entry: UpstreamQuotaEntry; readFailed?: boolean }
 
 export type AntigravityQuotaGroupId = 'gemini' | 'third-party'
 
@@ -38,6 +38,9 @@ type UpstreamQuotaCollectionBaselineEntry = {
 }
 
 const xaiOnDemandWindowId = 'xai-on-demand'
+const xaiWeeklyWindowId = 'xai-weekly-usage'
+const xaiProductUsageScopeId = 'xai-product-usage'
+const xaiProductWindowIdPrefix = 'xai-product-'
 
 const antigravityQuotaGroupOrder: AntigravityQuotaGroupId[] = ['gemini', 'third-party']
 
@@ -60,11 +63,17 @@ function isQuotaCollectionCandidate(entry: UpstreamQuotaEntry) {
   )
 }
 
-function hasNewActiveProbeResult(
+export function hasNewActiveProbeResult(
   entry: UpstreamQuotaEntry,
   baseline: UpstreamQuotaCollectionBaselineEntry | undefined,
 ) {
-  if (!baseline || entry.lastAttemptAt === baseline.lastAttemptAt) return false
+  if (!baseline || !entry.lastAttemptAt || entry.lastAttemptAt === baseline.lastAttemptAt)
+    return false
+  if (
+    baseline.lastAttemptAt &&
+    Date.parse(entry.lastAttemptAt) < Date.parse(baseline.lastAttemptAt)
+  )
+    return false
   if (entry.collectionStatus === 'collecting') return false
   if (
     entry.collectionStatus !== 'success' &&
@@ -168,22 +177,36 @@ export function resolveUpstreamQuotaCellState({
   truncated,
   map,
   resource,
+  readFailed = false,
 }: {
   available: boolean
   loading: boolean
   truncated: boolean
   map: Map<string, UpstreamQuotaEntry>
   resource: Pick<CredentialResource, 'authIndex' | 'id' | 'identifier' | 'name'>
+  readFailed?: boolean
 }): UpstreamQuotaCellState {
   if (!available) return { kind: 'capability-absent' }
-  if (loading) return { kind: 'loading' }
 
   const entry = findUpstreamQuotaEntry(map, resource)
-  if (entry) return { kind: 'entry', entry }
+  if (entry)
+    return readFailed ? { kind: 'entry', entry, readFailed: true } : { kind: 'entry', entry }
+  if (loading) return { kind: 'loading' }
+  if (readFailed) return { kind: 'read-error' }
   return { kind: truncated ? 'snapshot-miss' : 'not-collected' }
 }
 
-const quotaCollectableProviders = new Set(['claude', 'antigravity', 'codex', 'kimi', 'xai', 'grok'])
+const quotaCollectableProviders = new Set([
+  'claude',
+  'antigravity',
+  'codex',
+  'devin',
+  'kimi',
+  'xai',
+  'grok',
+  'meta',
+  'muse',
+])
 
 export function isCredentialQuotaCollectable(
   resource: Pick<CredentialResource, 'provider' | 'disabled' | 'status'>,
@@ -191,6 +214,46 @@ export function isCredentialQuotaCollectable(
   if (resource.disabled || resource.status === 'disabled') return false
   const provider = resource.provider.trim().toLowerCase()
   return quotaCollectableProviders.has(provider)
+}
+
+export function getCredentialQuotaId(
+  resource: Pick<CredentialResource, 'authIndex' | 'identifier'>,
+) {
+  return resource.authIndex ?? resource.identifier
+}
+
+export function resolveCredentialQuotaAction({
+  resource,
+  entry,
+  available,
+  collecting = false,
+}: {
+  resource: Pick<CredentialResource, 'provider' | 'disabled' | 'status'>
+  entry: UpstreamQuotaEntry | null
+  available: boolean
+  collecting?: boolean
+}) {
+  if (!available) return 'unavailable'
+  if (resource.disabled || resource.status === 'disabled' || entry?.credentialStatus === 'disabled')
+    return 'disabled'
+  if (
+    !isCredentialQuotaCollectable(resource) ||
+    entry?.status === 'unsupported' ||
+    entry?.collectionStatus === 'unsupported' ||
+    entry?.credentialType === 'provider_api_key'
+  )
+    return 'unsupported'
+  if (collecting || entry?.collectionStatus === 'collecting') return 'collecting'
+  if (entry?.collectionStatus === 'failed' || entry?.collectionStatus === 'partial') return 'retry'
+  if (!entry || (entry.freshness === 'never' && entry.lastAttemptAt === null)) return 'collect'
+  return 'refresh'
+}
+
+export function isXaiProductUsageWindow(window: Pick<QuotaWindow, 'id' | 'scopeId'>) {
+  return (
+    window.scopeId?.trim().toLowerCase() === xaiProductUsageScopeId ||
+    window.id.trim().toLowerCase().startsWith(xaiProductWindowIdPrefix)
+  )
 }
 
 export function findCurrencyWindow(entry: UpstreamQuotaEntry): QuotaWindow | null {
@@ -203,6 +266,47 @@ export function findCurrencyWindow(entry: UpstreamQuotaEntry): QuotaWindow | nul
 export function findXaiOnDemandWindow(entry: UpstreamQuotaEntry): QuotaWindow | null {
   const windows = [...entry.primaryWindows, ...entry.windows]
   return windows.find((window) => window.id === xaiOnDemandWindowId) ?? null
+}
+
+export function resolveXaiOnDemandState(entry: UpstreamQuotaEntry) {
+  const expiresAt = Date.parse(entry.expiresAt ?? '')
+  if (entry.freshness !== 'fresh' || (Number.isFinite(expiresAt) && expiresAt <= Date.now()))
+    return 'unknown'
+  const window = findXaiOnDemandWindow(entry)
+  if (window) return isRetainedQuotaWindow(entry, window) ? 'unknown' : 'enabled'
+  const hasWindows = entry.primaryWindows.length > 0 || entry.windows.length > 0
+  const observedEmpty =
+    entry.source === 'active_probe' &&
+    entry.windowCount === 0 &&
+    Number.isFinite(Date.parse(entry.observedAt ?? ''))
+  return entry.collectionStatus === 'success' && (hasWindows || observedEmpty)
+    ? 'disabled'
+    : 'unknown'
+}
+
+export function isRetainedQuotaWindow(
+  entry: Pick<UpstreamQuotaEntry, 'observedAt'>,
+  window: Pick<QuotaWindow, 'observedAt'>,
+) {
+  const snapshotTime = Date.parse(entry.observedAt ?? '')
+  const windowTime = Date.parse(window.observedAt ?? '')
+  return Number.isFinite(snapshotTime) && Number.isFinite(windowTime) && windowTime < snapshotTime
+}
+
+export function findXaiWeeklyWindow(entry: UpstreamQuotaEntry): QuotaWindow | null {
+  const windows = [...entry.primaryWindows, ...entry.windows]
+  return windows.find((window) => window.id === xaiWeeklyWindowId) ?? null
+}
+
+export function findXaiProductUsageWindows(entry: UpstreamQuotaEntry): QuotaWindow[] {
+  const seen = new Set<string>()
+  const result: QuotaWindow[] = []
+  for (const window of [...entry.primaryWindows, ...entry.windows]) {
+    if (!isXaiProductUsageWindow(window) || seen.has(window.id)) continue
+    seen.add(window.id)
+    result.push(window)
+  }
+  return result
 }
 
 function normalizeAntigravityQuotaGroupId(
@@ -264,4 +368,55 @@ export function resolveAntigravityQuotaPresentation(
     return { kind: 'not-collected', groups: [] }
   }
   return { kind: 'legacy', groups: [] }
+}
+
+export function resolveQuotaSnapshotDisplay(entry: UpstreamQuotaEntry) {
+  const expiresAt = entry.expiresAt ? Date.parse(entry.expiresAt) : NaN
+  const antigravity =
+    entry.provider.trim().toLowerCase() === 'antigravity'
+      ? resolveAntigravityQuotaPresentation(entry, [...entry.primaryWindows, ...entry.windows])
+      : null
+  const hasWindows = antigravity
+    ? antigravity.kind === 'windows'
+    : entry.primaryWindows.length > 0 || entry.windows.length > 0
+  const status =
+    antigravity?.kind === 'failed'
+      ? 'error'
+      : antigravity?.kind === 'legacy' ||
+          antigravity?.kind === 'collecting' ||
+          (!hasWindows &&
+            (entry.status === 'healthy' || entry.status === 'low' || entry.status === 'exhausted'))
+        ? 'unknown'
+        : entry.status
+  return {
+    status,
+    hasWindows,
+    historical:
+      hasWindows &&
+      (entry.freshness !== 'fresh' || (Number.isFinite(expiresAt) && expiresAt <= Date.now())),
+    notCollected:
+      entry.freshness === 'never' &&
+      entry.collectionStatus === 'idle' &&
+      entry.windowCount === 0 &&
+      entry.lastAttemptAt === null,
+  } as const
+}
+
+export function resolveQuotaLabelState(
+  entry: UpstreamQuotaEntry,
+  { collecting = false, readFailed = false } = {},
+) {
+  const display = resolveQuotaSnapshotDisplay(entry)
+  if (display.status === 'unsupported' || entry.collectionStatus === 'unsupported')
+    return 'unsupported'
+  if (collecting || entry.collectionStatus === 'collecting') return 'collecting'
+  if (readFailed) return 'read-error'
+  if (entry.collectionStatus === 'partial') return 'partial'
+  if (entry.collectionStatus === 'failed' || entry.lastError || display.status === 'error')
+    return 'failed'
+  if (display.historical || (!display.hasWindows && entry.windowCount > 0)) return 'outdated'
+  if (display.notCollected) return 'not-collected'
+  if (!display.hasWindows) return 'no-data'
+  if (display.status === 'unknown') return 'unknown'
+  return null
 }

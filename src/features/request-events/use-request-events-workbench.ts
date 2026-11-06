@@ -9,6 +9,7 @@ import {
 import type { StagedRefresh } from '@/features/observability/live-refresh'
 import { useLiveRefresh } from '@/features/observability/use-live-refresh'
 import { useManagementSession } from '@/features/observability/use-management-session'
+import { useLocalStoragePreference } from '@/hooks/use-local-storage-preference'
 import { usePersistentPagination } from '@/hooks/use-persistent-pagination'
 import { downloadRequestLogById, toLogsApiError } from '@/lib/api/management/logs'
 import {
@@ -18,6 +19,7 @@ import {
   fetchRequestEventFilterOptions,
   fetchRequestEvents,
   getRequestEventOptionFilters,
+  isRequestEventDateRangeValid,
   isRequestEventLatencyRangeValid,
   toRequestEventsApiError,
 } from '@/lib/api/management/request-events'
@@ -28,9 +30,32 @@ import type {
   RequestEventsPage,
 } from '@/lib/api/management/request-events'
 import { applyFilterPatch } from '@/lib/filter-patch'
-import { uiPreferenceKeys } from '@/lib/ui-preferences'
+import { createChoicePreferenceNormalizer, uiPreferenceKeys } from '@/lib/ui-preferences'
 
 const requestEventPageSizeOptions = [25, 50, 100, 200]
+const persistentRequestEventRanges = [
+  '4h',
+  '12h',
+  '24h',
+  'today',
+  'yesterday',
+  '7d',
+  '30d',
+  '90d',
+] as const satisfies readonly RequestEventFilters['range'][]
+const persistentRequestEventSorts = [
+  'timestamp_desc',
+  'timestamp_asc',
+  'latency_desc',
+  'latency_asc',
+  'tokens_desc',
+  'tokens_asc',
+  'cost_desc',
+  'cost_asc',
+  'failed_first',
+] as const
+const normalizeRequestEventRange = createChoicePreferenceNormalizer(persistentRequestEventRanges)
+const normalizeRequestEventSort = createChoicePreferenceNormalizer(persistentRequestEventSorts)
 const liveRefreshIntervalMs = 5_000
 const liveEligibleRanges = new Set<RequestEventFilters['range']>(['4h', '12h', '24h', 'today'])
 
@@ -68,11 +93,39 @@ export function useRequestEventsWorkbench() {
   const queryClient = useQueryClient()
   const { session, connected, checking, connectedAt, capabilityReady, capabilities, runtimeMode } =
     useManagementSession()
-  const [filters, setFilters] = usePersistentPagination(
+  const [storedRange, setStoredRange] = useLocalStoragePreference<RequestEventFilters['range']>(
+    uiPreferenceKeys.requestEventRange,
+    defaultRequestEventFilters.range,
+    normalizeRequestEventRange,
+  )
+  const [storedSort, setStoredSort] = useLocalStoragePreference(
+    uiPreferenceKeys.requestEventSort,
+    defaultRequestEventFilters.sort,
+    normalizeRequestEventSort,
+  )
+  const [filters, setFilters] = usePersistentPagination<RequestEventFilters>(
     uiPreferenceKeys.requestEventPageSize,
-    defaultRequestEventFilters,
+    {
+      ...defaultRequestEventFilters,
+      range: storedRange,
+      sort: storedSort,
+    },
     requestEventPageSizeOptions,
   )
+
+  useEffect(() => {
+    const normalizedRange = normalizeRequestEventRange(filters.range)
+    if (normalizedRange) {
+      setStoredRange(normalizedRange)
+    }
+  }, [filters.range, setStoredRange])
+
+  useEffect(() => {
+    const normalizedSort = normalizeRequestEventSort(filters.sort)
+    if (normalizedSort) {
+      setStoredSort(normalizedSort)
+    }
+  }, [filters.sort, setStoredSort])
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
   const [pendingEvents, setPendingEvents] = useState<StagedRefresh<RequestEventsPage> | null>(null)
 
@@ -80,7 +133,8 @@ export function useRequestEventsWorkbench() {
   // switches dropdown filters — those are excluded from the option scope.
   const optionFilters = getRequestEventOptionFilters(filters)
 
-  const filtersValid = isRequestEventLatencyRangeValid(filters)
+  const filtersValid =
+    isRequestEventDateRangeValid(filters) && isRequestEventLatencyRangeValid(filters)
   const requestEventsAvailable =
     connected && capabilityReady && Boolean(session.managementKey) && capabilities.requestEvents
   const canQueryEvents = requestEventsAvailable && filtersValid
@@ -112,6 +166,7 @@ export function useRequestEventsWorkbench() {
     session.baseUrl,
     connectedAt,
     capabilities.requestEvents,
+    capabilities.usageTokenBreakdownV2,
     filters,
   ] as const
 
@@ -123,7 +178,7 @@ export function useRequestEventsWorkbench() {
     refetchOnReconnect: false,
     queryFn: async () => {
       try {
-        return await fetchRequestEvents(session, filters)
+        return await fetchRequestEvents(session, filters, capabilities.usageTokenBreakdownV2)
       } catch (error) {
         throw toRequestEventsApiError(error)
       }
@@ -136,6 +191,7 @@ export function useRequestEventsWorkbench() {
       session.baseUrl,
       connectedAt,
       capabilities.requestEvents,
+      capabilities.usageTokenBreakdownV2,
       filters,
     ],
     enabled:
@@ -150,7 +206,11 @@ export function useRequestEventsWorkbench() {
     refetchIntervalInBackground: false,
     queryFn: async () => {
       try {
-        return await fetchRequestEvents(session, { ...filters, offset: 0 })
+        return await fetchRequestEvents(
+          session,
+          { ...filters, offset: 0 },
+          capabilities.usageTokenBreakdownV2,
+        )
       } catch (error) {
         throw toRequestEventsApiError(error)
       }
@@ -228,6 +288,7 @@ export function useRequestEventsWorkbench() {
       session.baseUrl,
       connectedAt,
       capabilities.requestEventDetails,
+      capabilities.usageTokenBreakdownV2,
       selectedEventId,
     ],
     enabled:
@@ -242,7 +303,11 @@ export function useRequestEventsWorkbench() {
       if (!selectedEventId) throw new Error('Request event is not selected')
 
       try {
-        return await fetchRequestEventDetail(session, selectedEventId)
+        return await fetchRequestEventDetail(
+          session,
+          selectedEventId,
+          capabilities.usageTokenBreakdownV2,
+        )
       } catch (error) {
         throw toRequestEventsApiError(error)
       }

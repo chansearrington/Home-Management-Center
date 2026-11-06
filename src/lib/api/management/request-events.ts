@@ -1,5 +1,8 @@
 import { createManagementClient, toManagementApiError } from '@/lib/api/management/client'
 import type { ManagementApiError, ManagementSessionInput } from '@/lib/api/management/types'
+import { parseUsageTokenBreakdown } from '@/lib/api/management/usage-logs'
+import type { UsageTokenBreakdown } from '@/lib/api/management/usage-logs'
+import { parseCalendarDate } from '@/lib/date-range'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -59,6 +62,21 @@ export type RequestEventTokens = {
   totalTokens: number
 }
 
+export type RequestEventToolUsage = {
+  webSearchCalls: number
+  webSearchQueries: number
+  webFetchCalls: number
+  xSearchCalls: number
+  codeExecutionCalls: number
+  fileSearchCalls: number
+  documentSearchCalls: number
+  mcpCalls: number
+  googleMapsChunks: number
+  numSourcesUsed: number
+  numServerSideToolsUsed: number
+  imageGenerationCalls: number
+}
+
 export type RequestEventPerformance = {
   latencyMs: number | null
   ttftMs: number | null
@@ -92,6 +110,7 @@ export type RequestEventClient = {
   clientKeyLabel: string | null
   clientKeyMasked: string | null
   clientIp: string | null
+  userAgent: string | null
 }
 
 export type RequestEventError = {
@@ -102,11 +121,32 @@ export type RequestEventError = {
   bodyPreview: string | null
 }
 
+export type RequestEventCostBreakdownItem = {
+  tokens: number
+  pricePerMillion: number
+  cost: number
+}
+
+export type RequestEventCostBreakdown = {
+  request: number
+  surcharges: number
+  baseTotal: number
+  billingMultiplier: number
+  total: number
+  reasoningEffort: string | null
+  reasoningEffortMultiplier: number | null
+  pricingExpr: string | null
+  items: Record<string, RequestEventCostBreakdownItem>
+}
+
 export type RequestEventBilling = {
   amount: number | null
+  baseAmount?: number | null
+  billingMultiplier?: number | null
   currency: string | null
   chargeId: string | null
   matchedPriceRule: string | null
+  costBreakdown?: RequestEventCostBreakdown | null
 }
 
 export type RequestEventRelated = {
@@ -135,6 +175,7 @@ export type RequestEvent = {
   originalModel: string | null
   modelAlias: string | null
   endpoint: string | null
+  stream: boolean | null
   source: string | null
   executorType: string | null
   serviceTier: string | null
@@ -144,6 +185,8 @@ export type RequestEvent = {
   client: RequestEventClient | null
   error: RequestEventError | null
   tokens: RequestEventTokens
+  tokenBreakdown: UsageTokenBreakdown | null
+  toolUsage?: RequestEventToolUsage | null
   performance: RequestEventPerformance
   billing: RequestEventBilling | null
   related: RequestEventRelated | null
@@ -256,6 +299,19 @@ export function isRequestEventLatencyRangeValid(
   return Number(minLatencyMs) <= Number(maxLatencyMs)
 }
 
+export function isRequestEventDateRangeValid(
+  filters: Pick<RequestEventFilters, 'range' | 'customFrom' | 'customTo'>,
+) {
+  if (filters.range !== 'custom') return true
+  const customFrom = filters.customFrom.trim()
+  const customTo = filters.customTo.trim()
+  const from = customFrom ? parseDateOnly(customFrom, 'start') : null
+  const to = customTo ? parseDateOnly(customTo, 'end') : null
+  if ((customFrom && !from) || (customTo && !to)) return false
+  if (from && to && from.getTime() > to.getTime()) return false
+  return true
+}
+
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -332,11 +388,13 @@ function getTimeZone() {
 function parseDateOnly(value: string, mode: 'start' | 'end') {
   const trimmed = value.trim()
   if (!trimmed) return null
+  if (!parseCalendarDate(trimmed.slice(0, 10))) return null
 
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    const date = new Date(`${trimmed}T00:00:00`)
-    if (Number.isNaN(date.getTime())) return null
+    const date = parseCalendarDate(trimmed)
+    if (!date) return null
     if (mode === 'end') date.setHours(23, 59, 59, 999)
+    else date.setHours(0, 0, 0, 0)
     return date
   }
 
@@ -354,11 +412,15 @@ function getDateRange(filters: RequestEventFilters) {
   const now = new Date()
 
   if (filters.range === 'custom') {
-    const from = parseDateOnly(filters.customFrom, 'start')
-    const to = parseDateOnly(filters.customTo, 'end')
+    const boundary = (value: string, mode: 'start' | 'end') => {
+      const date = parseDateOnly(value, mode)
+      if (!date) return undefined
+      // Calendar dates include the whole ending day; timestamps stay exact.
+      return /^\d{4}-\d{2}-\d{2}$/.test(value.trim()) ? value.trim() : date.toISOString()
+    }
     return {
-      from: from?.toISOString(),
-      to: to?.toISOString(),
+      from: boundary(filters.customFrom, 'start'),
+      to: boundary(filters.customTo, 'end'),
     }
   }
 
@@ -507,30 +569,33 @@ function normalizeCredential(value: unknown, root: UnknownRecord): RequestEventC
   }
 }
 
-function normalizeClient(value: unknown): RequestEventClient | null {
-  if (!isRecord(value)) return null
+function normalizeClient(value: unknown, root?: UnknownRecord): RequestEventClient | null {
+  const record = isRecord(value) ? value : {}
+  const rootUserAgent = root ? readStringFromKeys(root, ['user_agent', 'userAgent']) : null
+  if (!isRecord(value) && !rootUserAgent) return null
   return {
-    userId: readNumberFromKeys(value, ['user_id', 'userId']),
-    username: readString(value, 'username'),
-    clientKeyId: readNumberFromKeys(value, [
+    userId: readNumberFromKeys(record, ['user_id', 'userId']),
+    username: readString(record, 'username'),
+    clientKeyId: readNumberFromKeys(record, [
       'client_key_id',
       'clientKeyId',
       'api_key_id',
       'apiKeyId',
     ]),
-    clientKeyLabel: readStringFromKeys(value, [
+    clientKeyLabel: readStringFromKeys(record, [
       'client_key_label',
       'clientKeyLabel',
       'api_key_label',
       'apiKeyLabel',
     ]),
-    clientKeyMasked: readStringFromKeys(value, [
+    clientKeyMasked: readStringFromKeys(record, [
       'client_key_masked',
       'clientKeyMasked',
       'api_key_masked',
       'apiKeyMasked',
     ]),
-    clientIp: readStringFromKeys(value, ['client_ip', 'clientIp']),
+    clientIp: readStringFromKeys(record, ['client_ip', 'clientIp']),
+    userAgent: readStringFromKeys(record, ['user_agent', 'userAgent']) ?? rootUserAgent,
   }
 }
 
@@ -557,13 +622,44 @@ function normalizeError(value: unknown): RequestEventError | null {
   return error
 }
 
+function normalizeCostBreakdown(value: unknown): RequestEventCostBreakdown | null {
+  if (!isRecord(value)) return null
+  const rawItems = isRecord(value.items) ? value.items : {}
+  const items: Record<string, RequestEventCostBreakdownItem> = {}
+  for (const [key, itemVal] of Object.entries(rawItems)) {
+    if (!isRecord(itemVal)) continue
+    items[key] = {
+      tokens: readNumber(itemVal, 'tokens') ?? 0,
+      pricePerMillion: readNumberFromKeys(itemVal, ['price_per_million', 'pricePerMillion']) ?? 0,
+      cost: readNumber(itemVal, 'cost') ?? 0,
+    }
+  }
+  return {
+    request: readNumber(value, 'request') ?? 0,
+    surcharges: readNumber(value, 'surcharges') ?? 0,
+    baseTotal: readNumberFromKeys(value, ['base_total', 'baseTotal']) ?? 0,
+    billingMultiplier: readNumberFromKeys(value, ['billing_multiplier', 'billingMultiplier']) ?? 1,
+    total: readNumber(value, 'total') ?? 0,
+    reasoningEffort: readStringFromKeys(value, ['reasoning_effort', 'reasoningEffort']),
+    reasoningEffortMultiplier: readNumberFromKeys(value, [
+      'reasoning_effort_multiplier',
+      'reasoningEffortMultiplier',
+    ]),
+    pricingExpr: readStringFromKeys(value, ['pricing_expr', 'pricingExpr']),
+    items,
+  }
+}
+
 function normalizeBilling(value: unknown): RequestEventBilling | null {
   if (!isRecord(value)) return null
   return {
     amount: readNumber(value, 'amount'),
+    baseAmount: readNumberFromKeys(value, ['base_amount', 'baseAmount']),
+    billingMultiplier: readNumberFromKeys(value, ['billing_multiplier', 'billingMultiplier']),
     currency: readString(value, 'currency'),
     chargeId: readStringFromKeys(value, ['charge_id', 'chargeId']),
     matchedPriceRule: readStringFromKeys(value, ['matched_price_rule', 'matchedPriceRule']),
+    costBreakdown: normalizeCostBreakdown(value.cost_breakdown ?? value.costBreakdown),
   }
 }
 
@@ -591,7 +687,11 @@ function normalizeRelated(value: unknown): RequestEventRelated | null {
   }
 }
 
-function normalizeRequestEvent(value: unknown, index: number): RequestEvent {
+function normalizeRequestEvent(
+  value: unknown,
+  index: number,
+  tokenBreakdownV2 = false,
+): RequestEvent {
   const record = toRecord(value)
   const statusText = readString(record, 'status')?.toLowerCase()
   const explicitFailed = readBoolean(record, 'failed')
@@ -629,19 +729,69 @@ function normalizeRequestEvent(value: unknown, index: number): RequestEvent {
     originalModel: readStringFromKeys(record, ['original_model', 'originalModel']),
     modelAlias: readStringFromKeys(record, ['model_alias', 'modelAlias', 'alias']),
     endpoint: readString(record, 'endpoint'),
+    stream: readBoolean(record, 'stream'),
     source: readString(record, 'source'),
     executorType: readStringFromKeys(record, ['executor_type', 'executorType']),
     serviceTier: readStringFromKeys(record, ['service_tier', 'serviceTier']),
     reasoningEffort: readStringFromKeys(record, ['reasoning_effort', 'reasoningEffort']),
     runtime: normalizeRuntime(record.runtime, record),
     credential: normalizeCredential(record.credential, record),
-    client: normalizeClient(record.client),
+    client: normalizeClient(record.client, record),
     error,
     tokens: normalizeTokens(record.tokens),
+    tokenBreakdown: normalizeTokenBreakdown(
+      record.token_breakdown ?? record.tokenBreakdown,
+      tokenBreakdownV2,
+    ),
+    toolUsage: normalizeToolUsage(
+      record.tool_usage ?? record.toolUsage ?? record.tool_usage_details ?? record.toolUsageDetails,
+    ),
     performance: normalizePerformance(record.performance, record),
     billing: normalizeBilling(record.billing),
     related: normalizeRelated(record.related),
     raw: record,
+  }
+}
+
+// The usage_token_breakdown_v2 capability shipped with /usage/records, while
+// /request-events gained the field one release later — a capable backend can
+// still omit it here, so an unparseable payload degrades to the flat counters
+// instead of failing the whole query.
+function normalizeToolUsage(value: unknown): RequestEventToolUsage | null {
+  if (!isRecord(value)) return null
+  const out: RequestEventToolUsage = {
+    webSearchCalls:
+      readNumberFromKeys(value, ['web_search_calls', 'webSearchCalls', 'web_search_requests']) ?? 0,
+    webSearchQueries: readNumberFromKeys(value, ['web_search_queries', 'webSearchQueries']) ?? 0,
+    webFetchCalls: readNumberFromKeys(value, ['web_fetch_calls', 'webFetchCalls']) ?? 0,
+    xSearchCalls: readNumberFromKeys(value, ['x_search_calls', 'xSearchCalls']) ?? 0,
+    codeExecutionCalls:
+      readNumberFromKeys(value, [
+        'code_execution_calls',
+        'codeExecutionCalls',
+        'code_interpreter_calls',
+      ]) ?? 0,
+    fileSearchCalls: readNumberFromKeys(value, ['file_search_calls', 'fileSearchCalls']) ?? 0,
+    documentSearchCalls:
+      readNumberFromKeys(value, ['document_search_calls', 'documentSearchCalls']) ?? 0,
+    mcpCalls: readNumberFromKeys(value, ['mcp_calls', 'mcpCalls']) ?? 0,
+    googleMapsChunks: readNumberFromKeys(value, ['google_maps_chunks', 'googleMapsChunks']) ?? 0,
+    numSourcesUsed: readNumberFromKeys(value, ['num_sources_used', 'numSourcesUsed']) ?? 0,
+    numServerSideToolsUsed:
+      readNumberFromKeys(value, ['num_server_side_tools_used', 'numServerSideToolsUsed']) ?? 0,
+    imageGenerationCalls:
+      readNumberFromKeys(value, ['image_generation_calls', 'imageGenerationCalls']) ?? 0,
+  }
+  const hasAny = Object.values(out).some((count) => count > 0)
+  return hasAny ? out : null
+}
+
+function normalizeTokenBreakdown(value: unknown, enabled: boolean): UsageTokenBreakdown | null {
+  if (!enabled) return null
+  try {
+    return parseUsageTokenBreakdown(value)
+  } catch {
+    return null
   }
 }
 
@@ -662,9 +812,14 @@ function normalizeSort(value: string | null): RequestEventSortKey {
     : 'timestamp_desc'
 }
 
-function normalizeRequestEventsPage(responseData: unknown): RequestEventsPage {
+export function normalizeRequestEventsPage(
+  responseData: unknown,
+  tokenBreakdownV2 = false,
+): RequestEventsPage {
   const root = toRecord(responseData)
-  const items = readArray(root.items ?? root.events ?? root.records).map(normalizeRequestEvent)
+  const items = readArray(root.items ?? root.events ?? root.records).map((item, index) =>
+    normalizeRequestEvent(item, index, tokenBreakdownV2),
+  )
   return {
     items,
     total:
@@ -688,9 +843,12 @@ function normalizePayloadSummary(value: unknown): RequestEventPayloadSummary | n
   }
 }
 
-function normalizeRequestEventDetail(responseData: unknown): RequestEventDetail {
+export function normalizeRequestEventDetail(
+  responseData: unknown,
+  tokenBreakdownV2 = false,
+): RequestEventDetail {
   const root = toRecord(responseData)
-  const event = normalizeRequestEvent(root.event ?? root.record ?? root, 0)
+  const event = normalizeRequestEvent(root.event ?? root.record ?? root, 0, tokenBreakdownV2)
   return {
     event,
     payloadSummary: normalizePayloadSummary(root.payload_summary ?? root.payloadSummary),
@@ -780,12 +938,13 @@ export function toRequestEventsApiError(error: unknown): RequestEventsApiError {
 export async function fetchRequestEvents(
   session: ManagementSessionInput,
   filters: RequestEventFilters,
+  tokenBreakdownV2 = false,
 ): Promise<RequestEventsPage> {
   const client = createManagementClient(session)
   const response = await client.get<unknown>('/request-events', {
     params: getRequestEventQueryParams(filters),
   })
-  return normalizeRequestEventsPage(response.data)
+  return normalizeRequestEventsPage(response.data, tokenBreakdownV2)
 }
 
 export async function fetchRequestEventFilterOptions(
@@ -814,6 +973,7 @@ export async function fetchRequestEventFilterOptions(
 export async function fetchRequestEventDetail(
   session: ManagementSessionInput,
   eventId: string,
+  tokenBreakdownV2 = false,
 ): Promise<RequestEventDetail> {
   const client = createManagementClient(session)
   const response = await client.get<unknown>(`/request-events/${encodeURIComponent(eventId)}`, {
@@ -823,7 +983,7 @@ export async function fetchRequestEventDetail(
       include_related: true,
     },
   })
-  return normalizeRequestEventDetail(response.data)
+  return normalizeRequestEventDetail(response.data, tokenBreakdownV2)
 }
 
 export async function exportRequestEvents(

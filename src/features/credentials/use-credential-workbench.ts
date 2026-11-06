@@ -20,6 +20,7 @@ import {
   fetchCredentialInFlightSummary,
   fetchCredentialModels,
   fetchCredentialOAuthStatus,
+  fetchCredentialRawMetadata,
   fetchCredentialSnapshot,
   getCredentialBindingAuthId,
   getCredentialOAuthProviders,
@@ -153,10 +154,16 @@ export function useCredentialWorkbench() {
   const invalidate = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey }),
+      queryClient.invalidateQueries({
+        queryKey: ['management-credential-models', session.baseUrl, connectedAt],
+      }),
       queryClient.invalidateQueries({ queryKey: inFlightQueryKey }),
       queryClient.invalidateQueries({ queryKey: concurrencyQueryKey }),
       queryClient.invalidateQueries({
         queryKey: credentialConcurrencyPolicyQueryKey(session.baseUrl, connectedAt),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ['management-credential-raw-metadata', session.baseUrl, connectedAt],
       }),
     ])
   }
@@ -269,16 +276,6 @@ export function useCredentialWorkbench() {
     },
   })
 
-  const modelsMutation = useMutation({
-    mutationFn: async (resource: CredentialResource) => {
-      try {
-        return await fetchCredentialModels(session, resource)
-      } catch (error) {
-        throw toCredentialApiError(error)
-      }
-    },
-  })
-
   const oauthMutation = useMutation({
     mutationFn: async (input: CredentialOAuthStartInput) => {
       try {
@@ -363,13 +360,11 @@ export function useCredentialWorkbench() {
     },
     refreshCredentials: invalidate,
     downloadCredential: downloadMutation.mutateAsync,
-    fetchModels: modelsMutation.mutateAsync,
     startOAuth: oauthMutation.mutateAsync,
     cancelOAuth: cancelOAuthMutation.mutateAsync,
     checkOAuthStatus: oauthStatusMutation.mutateAsync,
     submitOAuthCallback: oauthCallbackMutation.mutateAsync,
     importVertexCredential: vertexImportMutation.mutateAsync,
-    models: modelsMutation.data ?? null,
     oauthResult: oauthMutation.data ?? null,
     oauthStatus: oauthStatusMutation.data ?? null,
     vertexImportResult: vertexImportMutation.data ?? null,
@@ -382,13 +377,28 @@ export function useCredentialWorkbench() {
       bulkStatusMutation.isPending ||
       bulkDeleteMutation.isPending ||
       downloadMutation.isPending ||
-      modelsMutation.isPending ||
       oauthMutation.isPending ||
       cancelOAuthMutation.isPending ||
       oauthStatusMutation.isPending ||
       oauthCallbackMutation.isPending ||
       vertexImportMutation.isPending,
   }
+}
+
+export function useCredentialModels(resource: CredentialResource | null, enabled: boolean) {
+  const { session, connected, connectedAt } = useManagementSession()
+  return useQuery({
+    queryKey: ['management-credential-models', session.baseUrl, connectedAt, resource?.id],
+    enabled: connected && Boolean(session.managementKey) && resource !== null && enabled,
+    queryFn: async ({ signal }) => {
+      if (!resource) throw new Error('Credential is required')
+      try {
+        return await fetchCredentialModels(session, resource, signal)
+      } catch (error) {
+        throw toCredentialApiError(error)
+      }
+    },
+  })
 }
 
 export function useCredentialInFlightDetail(credentialId: string | null, enabled: boolean) {
@@ -482,6 +492,37 @@ export function useCredentialInFlightDetail(credentialId: string | null, enabled
     hasNextPage: query.hasNextPage,
     fetchNextPage: query.fetchNextPage,
     refresh: () => queryClient.resetQueries({ queryKey, exact: true }),
+  }
+}
+
+export function useCredentialRawMetadata(resource: CredentialResource | null, enabled: boolean) {
+  const { session, connected, connectedAt } = useManagementSession()
+  const credentialId = resource ? getCredentialBindingAuthId(resource) : null
+  const query = useQuery({
+    queryKey: ['management-credential-raw-metadata', session.baseUrl, connectedAt, credentialId],
+    enabled:
+      connected &&
+      Boolean(session.managementKey) &&
+      enabled &&
+      Boolean(resource) &&
+      !resource?.runtimeOnly,
+    queryFn: async () => {
+      if (!resource) return {}
+      try {
+        return await fetchCredentialRawMetadata(session, resource)
+      } catch (error) {
+        throw toCredentialApiError(error)
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+  })
+
+  return {
+    rawMetadata: query.data ?? null,
+    isPending: query.isPending,
+    errorMessage: query.error instanceof Error ? query.error.message : null,
+    refetch: query.refetch,
   }
 }
 

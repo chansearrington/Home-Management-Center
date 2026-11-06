@@ -35,6 +35,6 @@ test('reconnect pins the target through the v8 API and cancellation uses the sam
     method: 'delete',
   })
   await startCredentialOAuth(session, { provider: 'claude' })
-  expect(requests[2].path).toBe('/v0/management/anthropic-auth-url')
-  expect(requests[2].params).not.toHaveProperty('credential_id')
+  expect(requests[2].path).toBe('/v8/management/oauth/auth-url')
+  expect(requests[2].params).toMatchObject({ provider: 'claude' })
 })

@@ -1,5 +1,30 @@
 export const en = {
   common: {
+    dateRangePicker: {
+      dateLabel: 'Date range',
+      timeLabel: 'Time range',
+      custom: 'Custom range',
+      presets: 'Back to presets',
+      fromDate: 'Start date',
+      toDate: 'End date',
+      fromTime: 'Start time',
+      toTime: 'End time',
+      selectStart: 'Select a start date',
+      selectEnd: 'Select an end date',
+      previousMonth: 'Previous month',
+      nextMonth: 'Next month',
+      separator: '–',
+      fromOnly: 'From {{date}}',
+      toOnly: 'Until {{date}}',
+      placeholder: 'Select a time range',
+      datePlaceholder: 'YYYY-MM-DD',
+      dateHint: 'Enter YYYY-MM-DD, with a four-digit year from 1970 to 9999.',
+      invalidDate: 'Enter a valid date between 1970-01-01 and 9999-12-31.',
+      invalidRange: 'Enter valid times and keep the end at or after the start.',
+      timezone: 'Time zone: {{timezone}}',
+      clear: 'Clear',
+      apply: 'Apply',
+    },
     productShortName: 'Home Center',
     close: 'Close',
     routeLoading: 'Loading page',
@@ -121,7 +146,7 @@ export const en = {
       close: 'Close connection dialog',
       baseUrl: 'Management endpoint',
       baseUrlHintDev:
-        'Dev only. Enter the backend service URL, e.g. http://127.0.0.1:8327. /v0/management is added automatically.',
+        'Dev only. Enter the backend service URL, e.g. http://127.0.0.1:8327. /v8/management is added automatically.',
       detectedRuntime: 'Available management endpoint detected: {{endpoint}}',
       detectedProxyEndpoint: 'Same-origin proxy endpoint detected: {{endpoint}}',
       managementKey: 'Management key',
@@ -136,6 +161,11 @@ export const en = {
       connectedAs: 'Connected to {{mode}}.',
       errors: {
         managementKeyRequired: 'Management key is required.',
+        unsupportedApiVersion: {
+          title: 'Unsupported Management API version',
+          description:
+            'This backend only serves a legacy Management API. Upgrade CLIProxyAPIHome to a release that supports the V8 Management API, then try again.',
+        },
       },
     },
     embeddedPortal: {
@@ -342,14 +372,14 @@ export const en = {
         retry: 'Try again',
       },
       signedOut: {
-        title: 'Pricing and availability are visible after you sign in.',
+        title: 'Sign in to see which models your keys can access.',
         signIn: 'Sign in',
         register: 'Create account',
       },
       accessibleError: {
         title: 'Your account view could not be loaded',
         description:
-          'The public catalog is shown without pricing, availability, or key coverage. Reported cause: {{message}}',
+          'Showing the public catalog. Model access for your account keys is unavailable. Reason: {{message}}',
       },
       access: {
         noApiKeys: {
@@ -462,8 +492,7 @@ export const en = {
         outSuffix: 'out / 1M tokens',
         tiered: '{{rungs}}-step ladder',
         signedOut: 'Sign in to see pricing',
-        signedOutDetail:
-          'This cluster publishes pricing to signed-in accounts only. Sign in to see the full ladder for this model.',
+        signedOutDetail: 'Sign in to view the complete price ladder available to your account.',
         notCovered: 'Not covered by your keys',
         notCoveredDetail:
           'This model is outside the model groups your keys can reach, so no price applies to your account yet.',
@@ -480,9 +509,26 @@ export const en = {
         rungFrom: 'From {{tokens}} input tokens',
         input: 'Input',
         output: 'Output',
+        reasoning: 'Reasoning',
         cacheRead: 'Cache read',
         cacheWrite: 'Cache write',
         request: 'Per request',
+        perCall: '/call',
+        toolsDetails: 'Tool prices ({{count}})',
+        pricingExpr: 'Pricing formula:',
+        tools: {
+          webSearch: 'Web search',
+          webSearchQuery: 'Search query',
+          webFetch: 'Web fetch',
+          xSearch: 'X search',
+          codeExecution: 'Code execution',
+          fileSearch: 'File search',
+          documentSearch: 'Document search',
+          mcp: 'MCP tool',
+          googleMaps: 'Google Maps',
+          sourcesUsed: 'Sources used',
+          serverTools: 'Server tools',
+        },
       },
       availability: {
         signedOut: 'Sign in to see observed availability',
@@ -766,6 +812,13 @@ export const en = {
         legacy: 'legacy',
       },
       settings: {
+        modelSource: 'Billing model ID source',
+        model_request: 'Request model ID',
+        model_response: 'Response model ID',
+        modelRequestOptionDescription:
+          'Match price rules using the requested/routed model ID first (default), falling back to upstream response_model.',
+        modelResponseOptionDescription:
+          'Match price rules using the upstream response_model first, falling back to the request model ID when absent.',
         serviceTierSource: 'Billing tier source',
         runtimeContextTitle: 'Runtime billing context',
         globalBadge: 'Global',
@@ -774,19 +827,22 @@ export const en = {
         schemaVersionTechnical: 'Backend price-rule capability: Rule schema v{{version}}.',
         currentRuntimeSource: 'Price rules currently use the {{source}}',
         runtimeContextDescription:
-          'Determines whether future charges match price rules using the request Tier or response Tier.',
+          'The model ID source and Tier source determine how future requests match price rules.',
         configure: 'Configure matching',
-        dialogTitle: 'Configure global Tier matching',
+        publicModelPricing: 'Show model catalog pricing when signed out',
+        publicModelPricingDescription:
+          'When enabled, anonymous visitors can view model price ladders, tool pricing, and availability metrics on the public model catalog without signing in.',
+        dialogTitle: 'Configure global billing matching',
         dialogDescription:
-          'Choose whether billing obtains the Tier from the request or the final response. This applies to every future charge.',
+          'Choose the sources for the billing model ID and Tier separately. Changes apply only to new charges after saving.',
         defaultBadge: 'Default',
         requestOptionDescription:
           'Use the Tier sent by the client. This is stable and works with providers that do not return a response Tier.',
         responseOptionDescription:
           'Use the final response Tier. Missing response Tiers fall back to the request Tier and are recorded in the price snapshot.',
-        policyTitle: 'Global Tier matching policy',
+        policyTitle: 'Global billing matching policy',
         policyDescription:
-          'Determines whether future charges match price rules using the request Tier or response Tier.',
+          'The model ID source and Tier source determine how future requests match price rules.',
         currentValue: 'Current policy',
         proposedValue: 'After saving:',
         change: 'Change',
@@ -800,8 +856,8 @@ export const en = {
         schemaVersion: 'Rule schema v{{version}}',
         legacyModeHint:
           'This backend exposes flat-price rules only. Tier, context-band, and tier-source controls are hidden.',
-        unsupported: 'This backend does not expose the Billing tier-source setting.',
-        saved: 'Billing tier source saved.',
+        unsupported: 'This backend does not expose billing matching source settings.',
+        saved: 'Billing matching settings saved.',
         noResponseTierWarning:
           'The latest {{count}} eligible requests contain no response-tier data. Response mode would fall back to the request tier for all of them.',
         fallbackSummary:
@@ -864,6 +920,8 @@ export const en = {
         title: 'Charge records',
         empty: 'No charge records in the selected range.',
         tokenSummary: 'In {{input}} / Out {{output}} / Cache {{cache}}',
+        tokenSummaryCacheSplit:
+          'In {{input}} / Out {{output}} / Cache R {{cacheRead}} / W {{cacheWrite}}',
         columns: {
           time: 'Time',
           user: 'User',
@@ -950,7 +1008,7 @@ export const en = {
         empty: 'No model prices yet.',
         actions: {
           create: 'New price',
-          import: 'Import from models.dev',
+          import: 'Import catalog prices',
           refreshSynced: 'Check synced price updates',
           createSelected: 'Create {{count}}',
           selectModels: 'Select models',
@@ -997,10 +1055,10 @@ export const en = {
           createDescription: 'Create a price rule for future charge calculation.',
           importTitle: 'Import model prices',
           importDescription:
-            'Preview models.dev matches, review write fields, and manually confirm the rules to apply.',
+            'Match models from a price catalog, review the preview, and confirm which rules to apply.',
           refreshSyncedTitle: 'Update synced prices',
           refreshSyncedDescription:
-            'Fetch current models.dev prices and preview changes to existing source=sync rules.',
+            'Fetch prices from the selected catalog and preview changes to existing source=sync rules.',
           editTitle: 'Edit model price',
           editDescription: 'Update a model price rule used by future charges.',
         },
@@ -1080,8 +1138,8 @@ export const en = {
           reloadCandidates: 'Reload candidates',
           candidateFailedEmpty:
             'Candidate models could not be loaded. Reload candidates or check the Management API response.',
-          catalogReady: 'Loaded {{count}} models at {{time}}.',
-          catalogFailed: 'Failed to load models.dev catalog.',
+          catalogReady: '{{source}}: {{count}} models loaded ({{time}}).',
+          catalogFailed: 'Could not load the price catalog.',
           serverPreviewBadge: 'Server preview',
           legacyPreviewBadge: 'Compatibility preview',
           serverPreviewFailed: 'The server preview could not be generated.',
@@ -1129,6 +1187,13 @@ export const en = {
           targetsTitle: 'Import targets',
           targetsHint:
             'Limit which Home models enter the preview before matching and pricing rules are evaluated.',
+          catalogSource: 'Catalog source',
+          catalogSources: {
+            auto: 'Auto (models.dev + OpenRouter + LiteLLM)',
+            openrouter: 'OpenRouter',
+            litellm: 'LiteLLM',
+            modelsDev: 'models.dev',
+          },
           providerFilter: 'Provider',
           allProviders: 'All providers',
           targetFilter: 'Target set',
@@ -1155,7 +1220,7 @@ export const en = {
           aliasRulesTitle: 'Model aliases',
           addAlias: 'Add alias',
           aliasTarget: 'Home model ID',
-          aliasSources: 'Preferred models.dev IDs, comma separated',
+          aliasSources: 'Preferred catalog model IDs, comma-separated',
           removeAlias: 'Remove alias',
           includeCache: 'Include cache prices',
           includeZeroCost: 'Allow zero official prices',
@@ -1171,8 +1236,8 @@ export const en = {
           selectAll: 'Select all applicable',
           clearSelection: 'Clear selection',
           exportPreview: 'Export preview',
-          searchPlaceholder: 'Search Home provider, model, or models.dev match',
-          resolveMatchPlaceholder: 'Choose models.dev match',
+          searchPlaceholder: 'Search provider, model, or catalog match',
+          resolveMatchPlaceholder: 'Select a catalog model match',
           applyMatchOverride: 'Rebuild preview',
           loadingPreview: 'Loading preview…',
           emptyPreview: 'No candidate models to preview.',
@@ -1182,7 +1247,7 @@ export const en = {
           columns: {
             status: 'Status',
             action: 'Planned action',
-            sourceModel: 'models.dev match',
+            sourceModel: 'Catalog match',
             official: 'Official in/out',
             multiplier: 'Multiplier',
             writeFields: 'Fields to write',
@@ -1545,6 +1610,7 @@ export const en = {
         claude: 'Claude',
         codex: 'Codex',
         xai: 'xAI',
+        meta: 'Meta',
         vertex: 'Vertex',
         openaiCompatibility: 'OpenAI',
       },
@@ -1634,6 +1700,7 @@ export const en = {
         claude: 'Claude',
         codex: 'Codex',
         xai: 'xAI',
+        meta: 'Meta',
         vertex: 'Vertex',
         openaiCompatibility: 'OpenAI',
       },
@@ -1686,6 +1753,7 @@ export const en = {
           kimi: 'Kimi',
           antigravity: 'Antigravity',
           xai: 'xAI',
+          meta: 'Meta',
         },
       },
       status: {
@@ -1706,7 +1774,7 @@ export const en = {
         disableDescription: 'Disable this model key to remove it from upstream request scheduling.',
         fields: {
           identifier: 'Identifier',
-          authIndex: 'Auth index',
+          authIndex: 'Credential index',
           baseUrl: 'Base URL',
           proxyUrl: 'Proxy URL',
           prefix: 'Prefix',
@@ -1721,6 +1789,23 @@ export const en = {
         },
       },
       form: {
+        apiKeyEntryLabel: 'Key {{index}}',
+        claudeFingerprintProfileHint: 'Leave blank to use the caller’s fingerprint profile.',
+        claudeRebuildMidSystemMessageHint: 'Rebuild system messages inside the conversation.',
+        claudeNativeToolSearchHint:
+          'Trust this upstream for native tool search. Requires the global Claude tool-search setting.',
+        claudeExperimentalCchSigningHint:
+          'Compatibility setting; signing is automatic for supported direct upstreams.',
+        modelIsCompatHint: 'Retain thinking blocks with empty signatures.',
+        modelSupportConfigUpdateHint: 'Allow Responses configuration_update for this model.',
+        modelImageSupportHint: 'Publish this model as an image model in the model catalog.',
+        modelUseMaxCompletionTokensHint:
+          'Send max_completion_tokens instead of max_tokens to the upstream.',
+        modelThinkingEnabled: 'Override thinking capabilities',
+        modelThinkingHint:
+          'When off, use backend defaults. When on, use only the capabilities configured below.',
+        requestScopedErrorAction: 'Action',
+        requestScopedErrorRegex: 'Regular expressions (one per line)',
         createEyebrow: 'New model key',
         editEyebrow: 'Edit model key',
         name: 'Model provider name',
@@ -1731,8 +1816,10 @@ export const en = {
         baseUrlRequiredHint:
           'Codex, xAI, and OpenAI-compatible providers require a Base URL. The backend ignores entries with an empty Base URL.',
         proxyUrl: 'Proxy URL',
+        directProxyAction: 'Set direct',
         prefix: 'Model prefix',
         priority: 'Priority',
+        weight: 'Weight',
         requestRetry: 'Request retry rounds',
         requestRetryPlaceholder: 'Leave blank to inherit global, 0 to disable retry rounds',
         requestRetryHint:
@@ -1741,9 +1828,30 @@ export const en = {
         disabledHint: 'When disabled, this entry will not be used for upstream requests.',
         disableCooling: 'Disable cooling',
         disableCoolingHint: 'Exclude this model key from quota cooldown scheduling.',
+        disableCoolingModeInherit: 'Inherit global',
+        disableCoolingModeEnabled: 'Enabled (disable cooling)',
+        disableCoolingModeDisabled: 'Disabled (allow cooling)',
         websockets: 'WebSocket support',
         websocketsHint:
-          'Codex and xAI only. Use the upstream WebSocket transport for downstream WebSocket requests.',
+          'Codex, xAI, and Meta only. Use the upstream WebSocket transport for downstream WebSocket requests.',
+        codexOptionsSection: 'Codex options',
+        disableCodexCloaking: 'Disable Codex cloaking',
+        disableCodexCloakingHint: 'Disable default request cloaking for Codex upstream requests.',
+        alphaSearch: 'Alpha Search',
+        alphaSearchHint: 'Enable Alpha Search support for this Codex provider entry.',
+        supportPromptCacheKey: 'Support prompt_cache_key',
+        supportPromptCacheKeyHint:
+          'Forward prompt_cache_key to this OpenAI-compatible upstream endpoint.',
+        apiKeyEntriesSection: 'Additional API key entries (keys[])',
+        apiKeyEntriesHint:
+          'Configure multiple upstream keys, per-key proxy URLs, and load-balancing weights for this OpenAI-compatible provider.',
+        addApiKeyEntry: 'Add key entry',
+        removeApiKeyEntry: 'Remove key entry',
+        claudeOptionsSection: 'Claude options',
+        claudeRebuildMidSystemMessage: 'Rebuild mid-conversation system messages',
+        claudeNativeToolSearch: 'Native tool search',
+        claudeExperimentalCchSigning: 'Experimental CCH signing',
+        claudeFingerprintProfile: 'Fingerprint profile',
         cloakSection: 'Cloak configuration',
         cloakHint: 'Claude only. Configure request cloaking and sensitive-word handling.',
         cloakMode: 'Cloak mode',
@@ -1762,10 +1870,32 @@ export const en = {
         modelDisplayNamePlaceholder: 'Readable name shown in model catalogs',
         modelForceMapping: 'Force response model mapping',
         modelForceMappingHint: 'Rewrite upstream response model fields to the client-facing alias.',
+        modelAdvancedToggle: 'Advanced model options',
+        modelMaxContextLength: 'Max context length (max-context-length)',
+        modelIsCompat: 'Compatibility mode (is-compat)',
+        modelSupportConfigUpdate: 'Support configuration update (support-configuration-update)',
+        modelUseMaxCompletionTokens: 'Use max_completion_tokens',
+        modelInputModalities: 'Input modalities (comma-separated)',
+        modelOutputModalities: 'Output modalities (comma-separated)',
+        modelThinkingLevels: 'Thinking levels',
+        modelThinkingMin: 'Thinking min budget',
+        modelThinkingMax: 'Thinking max budget',
+        modelThinkingZeroAllowed: 'Allow zero thinking budget (zero-allowed)',
+        modelThinkingDynamicAllowed: 'Allow dynamic thinking budget (dynamic-allowed)',
+        modelImageSupport: 'Image model',
+        modelImageAspectRatio: 'Allow aspect-ratio override (aspect-ratio)',
+        modelImageSize: 'Allow image-size override (image-size)',
         addModel: 'Add model',
         removeModel: 'Remove model',
         excludedModels: 'Excluded models',
         excludedModelsHint: 'Enter one model ID per line, or separate model IDs with commas.',
+        requestScopedErrorsSection: 'Request-scoped errors (request-scoped-errors)',
+        requestScopedErrorsHint:
+          'Match the HTTP status and any listed substring or regular expression. The action controls retries and cooling.',
+        addRequestScopedError: 'Add rule',
+        removeRequestScopedError: 'Remove rule',
+        requestScopedErrorCode: 'HTTP status code',
+        requestScopedErrorKeywords: 'Substrings (one per line)',
         headersSection: 'Request headers',
         headersHint: 'Attach upstream request headers for this model key.',
         headerName: 'Header name',
@@ -1773,14 +1903,22 @@ export const en = {
         addHeader: 'Add header',
         removeHeader: 'Remove header',
         validation: {
+          modelOptionsInvalid:
+            'Enter a positive integer context length and non-negative integer thinking budgets; the minimum cannot exceed the maximum.',
           nameRequired: 'Enter a model provider name before saving.',
           apiKeyRequired: 'Enter a model service key before saving.',
           baseUrlRequired:
             'Enter a Base URL before saving. Codex, xAI, and OpenAI-compatible providers cannot use an empty Base URL.',
           modelNameRequired:
             'Enter a model ID when an alias, display name, or force mapping is set.',
+          modelMaxContextInvalid: 'Model max context length must be a positive integer.',
+          modelThinkingBudgetInvalid: 'Thinking budget values must be integers.',
           headerNameRequired: 'Enter a header name when a header value is set.',
           requestRetryInvalid: 'Request retry rounds must be a non-negative integer.',
+          weightInvalid: 'Weight must be an integer between 0 and 1000000.',
+          proxyUrlInvalid: 'Proxy URL must be a valid http/https/socks5 URL or direct.',
+          requestScopedErrorInvalid:
+            'Enter a positive HTTP status and at least one substring or regular expression.',
         },
       },
       discovery: {
@@ -1869,8 +2007,12 @@ export const en = {
         updated: 'New active-probe results were detected and quota snapshots were refreshed.',
         pending:
           'Quota collection may still be running in the background; this page will keep refreshing.',
-        notQueued:
-          'No new jobs were queued; credentials may be ineligible, cooling down, or already queued or running.',
+        notQueued: 'No new job was queued. Reading the current status.',
+        credentialPending:
+          'No new collection result is available yet. The page will continue refreshing periodically.',
+        credentialPartial:
+          'Quota updated, but some information could not be collected. See credential details.',
+        credentialUpdated: 'Quota updated.',
         credentialQueued: 'Queued quota collection for {{name}}.',
         unavailable:
           'This backend does not support triggering quota collection yet; snapshots were re-read instead.',
@@ -1880,37 +2022,192 @@ export const en = {
         accountsMeta: '{{active}} active · {{disabled}} disabled · {{unavailable}} unavailable',
         providerKeys: 'Provider keys',
         attention: 'Quota attention',
-        attentionHint: 'Click to filter low / exhausted / error',
-        websockets: 'WebSocket on',
-        websocketsHint: 'Codex / Grok',
+        attentionHint: 'Show credentials whose quota needs attention',
+        websockets: 'WebSocket enabled',
+        websocketsHint: 'Codex / xAI (Grok)',
         pending: 'Loading',
         unsupported: 'Not supported',
       },
       quota: {
+        actions: {
+          collect: 'Collect quota',
+          refresh: 'Recollect quota',
+          retry: 'Retry collection',
+          collecting: 'Collecting',
+          disabled: 'Enable this credential to collect quota',
+          unsupported: 'This credential type does not support quota collection',
+          unavailable: 'This backend does not support active collection',
+        },
+        updatedAt: 'Quota updated: {{time}}',
+        metaAuthorizationRequired:
+          'This credential is missing the authorization information required to query Meta quota. Import the credential again with its complete authorization information.',
         notCollected: 'Not collected',
-        snapshotMiss: 'Not in snapshot',
+        snapshotMiss: 'Not loaded',
         snapshotMissHint:
-          'Quota exists on the backend but this credential is outside the risk-sorted page the console loaded.',
-        unsupported: 'Unsupported',
+          'This credential is outside the loaded snapshot list. Open quota details to read its current status.',
+        unsupported: 'Query unsupported',
         unsupportedHint:
           'Quota collection is not available for this credential type (common for provider API keys).',
         collectFailed: 'Collection failed',
+        daily: 'Daily limit',
+        weekly: 'Weekly limit',
         monthly: 'Monthly',
         monthlyCredits: 'Monthly credits',
         onDemand: 'On-demand',
         onDemandEnabled: 'Enabled',
         onDemandUnknown: 'Not provided',
+        onDemandDisabled: 'Disabled',
+        xai: {
+          usageBreakdown: 'Usage breakdown (shared quota)',
+          productUsage: '{{product}} usage',
+          usageUnavailable: 'Usage unavailable from xAI',
+          usageSummary: 'Product usage ({{count}})',
+        },
         remaining: 'Left',
         moneyRemaining: '{{remaining}} / {{limit}}',
-        more: '+{{count}} more',
+        summary: {
+          plan: '{{name}} plan',
+          subscriptionExpiry: 'Subscription ends',
+          subscriptionExpiresAt: 'Subscription ends: {{time}}',
+          historical: 'Recollect needed',
+          statusHint:
+            'Reported quota status includes periods hidden from this preview. It does not confirm that the credential is currently reachable.',
+          viewAll: 'Quota details ({{count}} windows)',
+          viewDetails: 'Quota details',
+          viewAllShort: 'All {{count}}',
+          viewDetailsShort: 'Details',
+          windowCount: '{{count}} quota windows',
+          sharedProducts: 'Products sharing quota: {{count}}',
+          updating: 'Collecting',
+          partial: 'Partial collection',
+          historicalDescription:
+            'These collected values are outside their validity period. Recollect for current quota. Bar colors still describe the remaining quota at that observation.',
+          retainedDescription:
+            'This query did not update the data. The last valid observations are retained.',
+          partialDescription:
+            'Some information could not be updated. Reported quota remains available; other information may come from an earlier observation.',
+          technicalDetails: 'Technical details',
+          originalError: 'Original upstream error',
+          errorCode: 'Error code',
+          httpStatus: 'HTTP status',
+          requestId: 'Request ID',
+          errorTime: 'Error time',
+          quotaStatus: 'Last observed quota status',
+          freshness: 'Data freshness',
+
+          noData: 'No data yet',
+          unknownHint: 'The quota status is not confirmed. Check the collected data in details.',
+          historicalHint:
+            'These are previous values outside their validity period. Recollect quota to update them.',
+          noDataHint:
+            'No usable quota values are available. Open details to review collection status.',
+          observedAgo: 'Collected {{time}}',
+          observedAtHint: 'Collected at: {{time}}',
+          queryScope: 'This describes the quota query only, not the outcome of model calls.',
+          queryIssueHint: 'About this quota query',
+          queryIssueLabel: '{{reason}}. Show explanation',
+
+          model: 'Model',
+          scope: 'Quota group',
+          account: 'Account',
+          unlimited: 'Unlimited',
+          periodUnavailable:
+            'The {{period}} quota for {{group}} is not available here. Check the full details.',
+          nextReset: 'Resets {{time}}',
+          resetUnconfirmed: 'Reset time unknown',
+          resetHint: 'Reset time: {{time}}',
+          pastResetHint: 'Recorded reset time has passed: {{time}}',
+          validUntil: 'This observation was valid until {{time}}.',
+
+          detailReadLabel: 'Quota periods',
+          detailReadFailed: 'Some details could not be loaded',
+
+          validUntilLabel: 'Data valid until',
+
+          labels: 'Quota labels',
+          queryFailed: 'Quota query failed',
+          collectingHint:
+            'Collecting the latest quota. Existing values remain visible until a valid result arrives.',
+          unsupportedHint: 'Quota queries are not supported for this credential type.',
+          capabilityAbsentHint:
+            'The connected backend does not provide the quota snapshot query capability.',
+          readFailed: 'Quota read failed',
+          readFailedHint:
+            'The latest quota records could not be read. Sync the data or open details to retry.',
+          recordMissing: 'No quota record',
+          recordMissingHint:
+            'This list has no quota record for the credential. Open details to read it.',
+          notCollectedHint: 'There is no collected quota yet. Use “{{action}}” to retrieve it.',
+          resetUnknownHint: 'Reset time unavailable',
+          observedUnknown: 'Collection time unknown',
+          noCollectionResult: 'No collection result',
+          notYetCollected: 'Not collected yet',
+          noCollectionResultHint: 'Last attempt: {{time}}',
+          hiddenRisk: {
+            low: 'Another quota window is low',
+            exhausted: 'Another quota window is exhausted',
+          },
+
+          historicalReadOnlyHint:
+            'These values are outside their validity period. The previous collection is shown.',
+          notCollectedReadOnlyHint: 'No valid quota collection is available yet.',
+        },
+        errors: {
+          authorization: {
+            title: 'Quota query unauthorized',
+            description:
+              'Authorization failed for this quota request. Check the credential’s access to the quota endpoint.',
+          },
+          rateLimited: {
+            title: 'Quota query rate limited',
+            description: 'The upstream limited quota queries. Wait before collecting again.',
+          },
+          clientOutdated: {
+            title: 'Quota query requires an update',
+            description:
+              'The upstream requires a newer client version. Update the Home backend, then collect quota again.',
+          },
+          invalidResponse: {
+            title: 'Quota query incomplete',
+            description:
+              'The quota endpoint did not return complete, usable data. Try collecting again later.',
+          },
+          missingAuthorization: {
+            title: 'Quota query authorization missing',
+            description:
+              'This credential lacks authorization for the Meta quota endpoint. Check its query permissions.',
+          },
+          missingToken: {
+            title: 'Quota query credentials missing',
+            description:
+              'Required authorization data is missing from this credential. Update the credential, then collect quota again.',
+          },
+          unavailable: {
+            title: 'Quota query failed',
+            description:
+              'The quota endpoint could not be read. Check query permissions or upstream service status.',
+          },
+          unknown: {
+            title: 'Quota query failed',
+            description:
+              'The latest quota could not be retrieved. Open quota details for technical information.',
+          },
+        },
         truncated:
-          'Quota snapshots cover only the top {{count}} credentials by risk; the rest show "Not collected".',
+          'The quota list loads the first {{count}} credentials by risk. Open quota details for the remaining credentials.',
         antigravity: {
           gemini: 'Gemini',
           thirdParty: 'Claude + GPT',
           upgrading: 'Refreshing Antigravity quota into the grouped format.',
           legacy:
             'Stored Antigravity quota uses an older or unrecognized format. Collect again to refresh it.',
+        },
+        claude: {
+          resetCreditsUnavailable: 'Remaining limit resets are not available for this observation.',
+          resetCredits: 'Remaining limit resets',
+          remainingResets: '{{count}} remaining',
+          resetCreditsHint:
+            'Provider-reported resets that have not expired or been paused. Whether you can use one now depends on your current usage limits.',
         },
         codex: {
           resetCredits: 'Rate-limit reset credits',
@@ -1922,11 +2219,11 @@ export const en = {
           observedAt: 'Observed {{time}}',
         },
         status: {
-          healthy: 'Healthy',
+          healthy: 'Quota healthy',
           low: 'Low quota',
           exhausted: 'Exhausted',
-          unknown: 'Unknown',
-          error: 'Query failed',
+          unknown: 'Quota unconfirmed',
+          error: 'Quota query failed',
           unsupported: 'Unsupported',
         },
         freshness: {
@@ -1980,8 +2277,8 @@ export const en = {
         noWindows: 'No quota windows',
       },
       quotaChips: {
-        attention: 'Attention',
-        ws: 'WS only',
+        attention: 'Quota alerts only',
+        ws: 'Only with WebSocket enabled',
       },
       drawer: {
         tabs: {
@@ -1996,8 +2293,6 @@ export const en = {
         metadata: {
           priorityPlaceholder: 'e.g. 10 or -1',
           priorityHint: 'Integers only; higher values have higher scheduling priority.',
-          websocketsXaiHint: 'For xAI/Grok. Enables this credential for WebSocket transport.',
-          websocketsUnsupported: 'The current provider does not expose a WS toggle.',
           enableTitle: 'Enable credential',
         },
         danger: {
@@ -2014,7 +2309,8 @@ export const en = {
           unavailableTitle: 'Quota details unsupported',
           unavailableDescription:
             'The Management API does not expose quota snapshot details; only list summaries are shown.',
-          readOnlyNote: 'Quota is a read-only snapshot and does not trigger upstream probes.',
+          readOnlyNote:
+            'Viewing snapshots does not trigger upstream probes. Use Collect or Refresh to request updated quota.',
         },
       },
     },
@@ -2055,7 +2351,7 @@ export const en = {
         status: 'Status',
         provider: 'Model provider',
         allProviders: 'All model providers',
-        quickFilters: 'Quick filters',
+        quickFilters: 'Credential filters',
         resultCount: 'Showing {{visible}} of {{total}} credentials',
         clear: 'Clear filters',
       },
@@ -2192,16 +2488,23 @@ export const en = {
         provider: 'Model provider',
         toggleStatus: 'Toggle credential {{name}} status',
         enabled: 'Enabled',
-        ws: 'WS',
+        inFlight: 'In-flight',
+        ws: 'WebSocket',
         cooling: 'Cooling schedule',
         priority: 'Priority',
+        weight: 'Weight',
         actions: 'Actions',
       },
       inline: {
         saved: 'Saved.',
-        websocketsLabel: 'Toggle WebSocket',
-        websocketsUnsupported: 'WebSocket is not supported for this provider',
-        notApplicable: 'n/a',
+        websocketsLabel: 'Toggle WebSocket for {{name}}',
+        websocketsUnsupported:
+          'Only Codex and xAI (Grok) credentials support configuring WebSocket transport.',
+        websocketsEnabled: 'Enabled',
+        websocketsDisabled: 'Disabled',
+        websocketsUnknown: 'Unknown',
+        websocketsMissing: 'The backend did not return the WebSocket setting for this credential.',
+        notApplicable: 'Not applicable',
       },
       bulk: {
         selectAll: 'Select all credentials in the current list',
@@ -2226,6 +2529,8 @@ export const en = {
         enabled: 'Enabled',
         disabled: 'Disabled',
         unavailable: 'Unavailable',
+        error: 'Credential error',
+        unknown: 'Status unknown',
         notSet: 'Not set',
         inherited: 'Inherit global',
         notAvailable: 'N/A',
@@ -2242,12 +2547,12 @@ export const en = {
           type: 'Type',
           source: 'Source',
           account: 'Account',
-          authIndex: 'Auth index',
+          authIndex: 'Credential index',
           path: 'Path',
           size: 'Size',
           priority: 'Priority',
           requestRetry: 'Request retry rounds',
-          websockets: 'WebSocket',
+          websockets: 'WebSocket transport',
           cooling: 'Cooling schedule',
           success: 'Success',
           failed: 'Failed',
@@ -2260,21 +2565,68 @@ export const en = {
         },
       },
       form: {
+        proxyInherit: 'Use inherited proxy',
+        metadataLoading: 'Loading credential metadata',
+        headersIncomplete: 'Enter both a header name and value, or remove the row.',
+        customFieldsInvalid:
+          'Use a non-empty dot path. Credential selectors and concurrency fields must use their dedicated controls.',
+        customFieldsWarning: 'Saving a field does not guarantee that the current provider uses it.',
         prefix: 'Prefix',
         proxyUrl: 'Proxy URL',
+        proxyUrlDirectHint:
+          'Supports http/https/socks5 URLs, or enter direct to bypass the global proxy.',
+        directProxyAction: 'Set direct',
         priority: 'Priority',
         priorityInvalid: 'Priority must be an integer.',
+        weight: 'Weight',
+        weightHint:
+          'Weighted load-balancing factor among credentials at the same priority (0–1000000, leave blank for default).',
+        weightInvalid: 'Weight must be an integer between 0 and 1000000.',
         requestRetry: 'Request retry rounds',
         requestRetryPlaceholder: 'Leave blank to inherit global, 0 to disable retry rounds',
         requestRetryHint:
           'Additional retry rounds allowed after all credentials fail in the initial attempt round. 0 disables additional rounds; blank or negative values inherit the global setting.',
         requestRetryInvalid: 'Request retry rounds must be a non-negative integer.',
-        websockets: 'WebSocket support',
+        websockets: 'WebSocket transport',
         websocketsHint:
-          'Only applies to Codex credentials. Enable it when this credential should handle Codex requests that require WebSocket support.',
+          'Enable or disable upstream WebSocket transport for this credential. Applies to Codex and xAI (Grok).',
+        usingApi: 'Use official API (using_api)',
+        usingApiHint:
+          'Use the official xAI API when enabled; use Grok CLI chat-proxy when disabled.',
         coolingSchedule: 'Cooling schedule',
         coolingScheduleHint:
-          'When enabled, this credential participates in quota cooldown scheduling; when disabled, it is excluded from cooling.',
+          'Configure whether this credential participates in quota cooldown scheduling or inherits the global policy.',
+        coolingModeInherit: 'Inherit global policy',
+        coolingModeEnabled: 'Participate in cooling (disable_cooling = false)',
+        coolingModeDisabled: 'Disable cooling (disable_cooling = true)',
+        excludedModels: 'Excluded models (excluded_models)',
+        excludedModelsPlaceholder: 'One model ID per line, or comma-separated',
+        excludedModelsHint:
+          'A non-empty list overrides global OAuth exclusions. Clear it to inherit the global rules again.',
+        excludedModelsLoading: 'Loading models...',
+        excludedModelsEmpty: 'No models excluded (select from model list)',
+        excludedModelsSummary: '{{excluded}} excluded · {{available}} available',
+        excludedModelsRulesSummary: '{{count}} exclusion rules (click to load model list)',
+        excludedModelsUnavailable:
+          'Exclusion candidates are unavailable for this credential. You can still edit rules below; update Home if you are using an older version.',
+        excludedModelsSearchPlaceholder: 'Search models...',
+        excludedModelsSelectAll: 'Select all',
+        excludedModelsClear: 'Clear',
+        headersSection: 'Custom headers (headers)',
+        headersHint: 'HTTP headers attached to upstream requests made with this credential.',
+        addHeader: 'Add header',
+        removeHeader: 'Remove header',
+        headerNamePlaceholder: 'Header name',
+        headerValuePlaceholder: 'Header value',
+        headerNameRequired: 'Enter a header name when a header value is set.',
+        customFieldsSection: 'Advanced metadata fields',
+        customFieldsHint:
+          'Read or write custom fields in the credential JSON via dot-separated paths (for example custom.flag or nested.config). Supports JSON literals or plain strings.',
+        addCustomField: 'Add field',
+        removeCustomField: 'Remove field',
+        customFieldPathPlaceholder: 'Field path, e.g. custom.field',
+        customFieldValuePlaceholder: 'Value (JSON or text)',
+        customFieldKeyRequired: 'Enter a field path when a field value is set.',
         note: 'Note',
       },
       concurrency: {
@@ -2348,6 +2700,13 @@ export const en = {
           modelLimit: 'The limit for {{model}} must be a non-negative integer.',
           duplicateModel: 'Model {{model}} is configured more than once.',
         },
+
+        cellUnsupported: 'Unsupported',
+        cellLoading: 'Loading in-flight data',
+        cellUnknown: 'No in-flight snapshot is available yet.',
+        cellUnavailable: 'In-flight data could not be loaded. Open details to retry.',
+        cellStale:
+          'The snapshot is stale, incomplete, or could not be refreshed. Showing the last known counts.',
       },
       delete: {
         title: 'Delete credential?',
@@ -2408,7 +2767,7 @@ export const en = {
         delete: 'Delete',
         copy: 'Copy',
         copyKey: 'Copy key {{key}}',
-        copyIdentifier: 'Copy identifier',
+        copyIdentifier: 'Copy identifier {{identifier}}',
         reveal: 'Reveal',
         hide: 'Hide',
         generate: 'Generate key',
@@ -2416,15 +2775,13 @@ export const en = {
       },
       list: {
         title: 'Access keys',
-        description:
-          'These keys grant clients access to the Home Center server; they are not model provider keys.',
         filterPlaceholder: 'Filter keys',
         empty: 'No access keys match the current filter.',
-        index: 'No.',
         identity: 'Name / key',
-        identifierTooltip:
-          'The display name is an editable label and does not affect authentication. The stable identifier (api-key-N) survives renames and key rotations, and links the same key across usage, billing, and request records.',
-        identifierUnavailable: 'No stable identifier',
+        identifier: 'Key ID',
+        identifierHint:
+          'Used in usage and billing records. Unchanged by renaming or rotating the key.',
+        key: 'Key',
         owner: 'Owner',
         credentialScope: 'Credential scope',
         modelScope: 'Model scope',
@@ -2453,6 +2810,8 @@ export const en = {
         noName: 'No display name',
         fields: {
           name: 'Display name',
+          identifier: 'Key identifier',
+          status: 'Status',
           prefix: 'Prefix',
           suffix: 'Suffix',
           length: 'Length',
@@ -2680,6 +3039,8 @@ export const en = {
         keyValue: 'Key value',
         owner: 'Owner',
         unassigned: 'Unassigned',
+        ownerUnavailableHint:
+          'This user is deleted or missing from the available list. You can keep the original owner when saving other settings, or select another user.',
         emptyScopeHint:
           'When no scope is selected, this key does not add credential or model restrictions.',
         empty: 'No client keys yet.',
@@ -2951,7 +3312,14 @@ export const en = {
         server: {
           title: 'Server runtime',
           shortTitle: 'Server',
-          description: 'Core switches that affect runtime diagnostics and service behavior.',
+          description:
+            'Configure the listen port, bind address, host allowlist, trusted proxies, and commercial mode.',
+        },
+        discovery: {
+          title: 'Service discovery',
+          shortTitle: 'Discovery',
+          description:
+            'Configure mDNS service discovery broadcast: service name, service type, subtypes, interface scope, and access control.',
         },
         tls: {
           title: 'TLS',
@@ -2964,6 +3332,12 @@ export const en = {
           description:
             'Control remote Management API access, the management key, and control panel update behavior.',
         },
+        userEmail: {
+          title: 'User email',
+          shortTitle: 'Email',
+          description:
+            'Configure delivery of user verification and recovery emails: sender identity, SMTP connection, and token lifetimes.',
+        },
         plugins: {
           title: 'Plugin settings',
           shortTitle: 'Plugins',
@@ -2974,27 +3348,67 @@ export const en = {
           title: 'OAuth model rules',
           shortTitle: 'OAuth rules',
           description:
-            'Configure excluded models and client-visible aliases for OAuth and file-backed credentials.',
+            'Configure excluded models, client-visible aliases, and request-scoped error rules for OAuth and file-backed credentials.',
+        },
+        oauthProviders: {
+          title: 'OAuth providers',
+          shortTitle: 'Providers',
+          description:
+            'Configure the OAuth credential directory and provider-specific settings for Codex, Antigravity, and Devin.',
+        },
+        devin: {
+          title: 'Devin',
+          shortTitle: 'Devin',
+          description:
+            'Configure system-prompt sensitive-word obfuscation rules for the Devin OAuth provider.',
+        },
+        liveMediaRelay: {
+          title: 'Codex · Live media relay',
+          shortTitle: 'Media relay',
+          description:
+            'Configure the Codex live media (audio/video) relay: session limit, public IP, UDP port range, and ICE servers.',
         },
         system: {
           title: 'Logs and usage',
           shortTitle: 'Logs',
-          description: 'Control request logs, file logs, usage statistics, and log retention.',
+          description:
+            'Control debug diagnostics, request logs, file logs, usage statistics, log retention, pprof, and the Redis usage queue.',
         },
         network: {
           title: 'Network proxy',
           shortTitle: 'Network',
-          description: 'Configure the outbound proxy used by the server.',
-        },
-        quota: {
-          title: 'Quota handling',
-          shortTitle: 'Quota',
-          description: 'Control fallback behavior when quota is exhausted.',
+          description:
+            'Configure the outbound proxy used by the server and request header passthrough.',
         },
         streaming: {
           title: 'Retry and routing',
           shortTitle: 'Routing',
-          description: 'Control request retries, model prefix matching, and model service routing.',
+          description:
+            'Control request retries, model prefix matching, routing strategy, session affinity, and transport keepalive.',
+        },
+        credentialConcurrency: {
+          title: 'Credential concurrency',
+          shortTitle: 'Concurrency',
+          description:
+            'Tune concurrency scheduling for CPA heartbeat, reclaim, and release. The first four items are rejected by the backend while any CPA is online (active/canceling).',
+        },
+        credentialInFlight: {
+          title: 'In-flight snapshots',
+          shortTitle: 'In-flight',
+          description:
+            'Control in-flight request observation cadence and memory limits. stale-after must be at least 3× snapshot-interval.',
+        },
+        upstream: {
+          title: 'Upstream behavior',
+          shortTitle: 'Upstream',
+          description:
+            'Control request cloaking, cooling, and streaming behavior for Codex, Claude, and xAI upstreams.',
+        },
+        headers: {
+          title: 'Header spoofing',
+          shortTitle: 'Headers',
+          description:
+            'Configure default request headers sent to Claude and Codex upstreams for client identity spoofing and device-profile stabilization.',
         },
         payload: {
           title: 'Request parameter rewriting',
@@ -3006,7 +3420,12 @@ export const en = {
           title: 'Antigravity',
           shortTitle: 'Antigravity',
           description:
-            'Configure Antigravity gateway behavior and system prompt sensitive words obfuscation.',
+            'Configure Antigravity gateway behavior, sensitive words obfuscation, credits, and the connection pool.',
+        },
+        multimedia: {
+          title: 'Multimedia',
+          shortTitle: 'Media',
+          description: 'Control image generation handling and video result auth caching behavior.',
         },
       },
       fields: {
@@ -3031,10 +3450,6 @@ export const en = {
         errorLogsMaxFiles: {
           label: 'Error log files',
           description: 'Limit the number of retained error log files.',
-        },
-        usageStatisticsEnabled: {
-          label: 'Usage statistics',
-          description: 'Record usage data by client key and request.',
         },
         tlsEnable: {
           label: 'Enable HTTPS',
@@ -3062,15 +3477,6 @@ export const en = {
         remoteManagementDisableControlPanel: {
           label: 'Disable control panel',
           description: 'Disable /management.html and panel syncing.',
-        },
-        remoteManagementDisableAutoUpdatePanel: {
-          label: 'Disable panel auto update',
-          description: 'Disable periodic background updates for panel assets.',
-        },
-        remoteManagementPanelGithubRepository: {
-          label: 'Panel repository URL',
-          description: 'GitHub repository URL or releases API URL used for panel asset updates.',
-          placeholder: 'https://github.com/org/repo',
         },
         proxyUrl: {
           label: 'Outbound proxy URL',
@@ -3126,14 +3532,6 @@ export const en = {
           label: 'Routing strategy',
           description: 'Selection strategy when multiple keys or credentials are available.',
         },
-        quotaSwitchProject: {
-          label: 'Switch project on quota',
-          description: 'Try another available project when project quota is exhausted.',
-        },
-        quotaSwitchPreviewModel: {
-          label: 'Switch preview model on quota',
-          description: 'Try an available preview model when quota is exhausted.',
-        },
         oauthExcludedModelsJson: {
           label: 'Disabled models',
           description:
@@ -3159,11 +3557,515 @@ export const en = {
             'Insert zero-width spaces into matching Antigravity system prompts to reduce exact keyword detection upstream.',
           placeholder: 'proxy\nAPI',
         },
+        serverHost: {
+          label: 'Listen address',
+          description: 'Address the server binds to. Empty listens on all interfaces.',
+          placeholder: '0.0.0.0',
+        },
+        serverAllowHostJson: {
+          label: 'Allowed Host headers',
+          description: 'One allowed HTTP Host per line. An empty array means no restriction.',
+        },
+        serverTrustedProxiesJson: {
+          label: 'Trusted proxies',
+          description:
+            'One trusted proxy IP or CIDR per line. X-Forwarded-For is only honored from these proxies.',
+        },
+        serverCommercialMode: {
+          label: 'Commercial mode',
+          description: 'Enable server behavior constraints intended for commercial deployments.',
+        },
+        discoveryEnabled: {
+          label: 'Enable service discovery',
+          description: 'Broadcast this instance over mDNS so LAN CPA nodes can discover it.',
+        },
+        discoveryServiceName: {
+          label: 'Service name',
+          description: 'Service instance name used in the mDNS broadcast.',
+          placeholder: 'CLIProxyAPIHome',
+        },
+        discoveryServiceType: {
+          label: 'Service type',
+          description: 'mDNS service type. Usually keep the default.',
+          placeholder: '_cliproxyapi._tcp',
+        },
+        discoverySubtypesJson: {
+          label: 'Service subtypes',
+          description: 'One additional mDNS subtype per line for finer discovery filtering.',
+        },
+        discoveryInterfacesIncludeJson: {
+          label: 'Included interfaces',
+          description:
+            'One interface name per line; broadcast only on these interfaces. An empty array means no restriction.',
+        },
+        discoveryInterfacesExcludeJson: {
+          label: 'Excluded interfaces',
+          description: 'One interface name per line; these interfaces do not broadcast.',
+        },
+        discoveryAuthRequired: {
+          label: 'Discovery requires auth',
+          description: 'Mark discovery responses as requiring authentication to join.',
+        },
+        discoveryAdvertiseManagement: {
+          label: 'Advertise management',
+          description: 'Include management access information in the discovery broadcast.',
+        },
+        managementBaseUrl: {
+          label: 'Management base URL',
+          description: 'Externally advertised management URL. Empty infers it from the request.',
+          placeholder: 'https://admin.example.com',
+        },
+        userEmailEnabled: {
+          label: 'Enable user email',
+          description:
+            'Send user verification and password recovery emails with the settings below.',
+        },
+        userEmailPublicUrl: {
+          label: 'Public user site URL',
+          description: 'External base URL used for callback links in emails.',
+          placeholder: 'https://home.example.com',
+        },
+        userEmailFromAddress: {
+          label: 'From address',
+          description: 'Sender mailbox used in the email From header.',
+          placeholder: 'no-reply@example.com',
+        },
+        userEmailFromName: {
+          label: 'From name',
+          description: 'Display name used in the email From header.',
+          placeholder: 'Home Center',
+        },
+        userEmailSmtpHost: {
+          label: 'SMTP host',
+          description: 'SMTP server hostname or IP.',
+          placeholder: 'smtp.example.com',
+        },
+        userEmailSmtpPort: {
+          label: 'SMTP port',
+          description:
+            'SMTP server port (1–65535). 0 means unconfigured and lets the backend default apply.',
+          placeholder: '465',
+        },
+        userEmailSmtpUsername: {
+          label: 'SMTP username',
+          description: 'SMTP auth username. Empty skips authentication.',
+        },
+        userEmailSmtpPasswordEnv: {
+          label: 'SMTP password env var',
+          description:
+            'Name of the environment variable holding the SMTP password; the password itself is never written to config.',
+          placeholder: 'SMTP_PASSWORD',
+        },
+        userEmailSmtpStarttls: {
+          label: 'Enable STARTTLS',
+          description: 'Upgrade the SMTP connection with STARTTLS encryption.',
+        },
+        userEmailVerificationTokenTtl: {
+          label: 'Verification token TTL',
+          description:
+            'Validity duration of email verification tokens (Go duration). Empty uses the backend default.',
+          placeholder: 'Backend default',
+        },
+        userEmailResetTokenTtl: {
+          label: 'Reset token TTL',
+          description:
+            'Validity duration of password reset tokens (Go duration). Empty uses the backend default.',
+          placeholder: 'Backend default',
+        },
+        concurrencyCpaHeartbeatTimeout: {
+          label: 'CPA heartbeat timeout',
+          description:
+            'Wait duration before a CPA heartbeat is considered lost (Go duration). Empty restores the backend default.',
+          placeholder: 'Default 3s',
+        },
+        concurrencyCpaCancelBound: {
+          label: 'CPA cancel bound',
+          description:
+            'Maximum duration a canceling state is retained (Go duration). Empty restores the backend default.',
+          placeholder: 'Default 5s',
+        },
+        concurrencyReclaimGrace: {
+          label: 'Reclaim grace period',
+          description:
+            'Grace duration before an unreachable credential is reclaimed (Go duration). Empty restores the backend default.',
+          placeholder: 'Default 5s',
+        },
+        concurrencyCleanupInterval: {
+          label: 'Cleanup interval',
+          description:
+            'Scan interval for concurrency state cleanup (Go duration). Empty restores the backend default.',
+          placeholder: 'Default 5s',
+        },
+        concurrencyReleaseFlushInterval: {
+          label: 'Release flush interval',
+          description:
+            'Batch flush interval for concurrency releases (Go duration). Empty restores the backend default.',
+          placeholder: 'Default 250ms',
+        },
+        concurrencyReleaseMaxBackoff: {
+          label: 'Release max backoff',
+          description:
+            'Maximum backoff between failed release retries (Go duration). Empty restores the backend default.',
+          placeholder: 'Default 2s',
+        },
+        concurrencyBusyRetryMin: {
+          label: 'Busy retry min interval',
+          description:
+            'Minimum retry interval on concurrency contention (Go duration). Empty restores the backend default.',
+          placeholder: 'Default 250ms',
+        },
+        concurrencyBusyRetryMax: {
+          label: 'Busy retry max interval',
+          description:
+            'Maximum retry interval on concurrency contention (Go duration). Empty restores the backend default.',
+          placeholder: 'Default 1s',
+        },
+        concurrencyMaxLimit: {
+          label: 'Global concurrency limit',
+          description: 'Global upper bound of concurrent occupancy (1–1000000).',
+        },
+        concurrencyLifecycleConfigRevision: {
+          label: 'Lifecycle config revision',
+          description: 'Backend-maintained concurrency lifecycle config revision. Read-only.',
+        },
+        concurrencyObservationBarrierRevision: {
+          label: 'Observation barrier revision',
+          description: 'Backend-maintained concurrency observation barrier revision. Read-only.',
+        },
+        inFlightSnapshotInterval: {
+          label: 'Snapshot interval',
+          description:
+            'Collection interval for in-flight request snapshots (Go duration). Empty restores the backend default.',
+          placeholder: 'Default 2s',
+        },
+        inFlightStaleAfter: {
+          label: 'Snapshot stale after',
+          description:
+            'In-flight records not updated within this duration are stale (Go duration). Must be at least 3× the snapshot interval.',
+          placeholder: 'Default 10s',
+        },
+        inFlightStagingRetention: {
+          label: 'Staging retention',
+          description:
+            'Retention duration for in-flight staging data (Go duration). Empty restores the backend default.',
+          placeholder: 'Default 1m',
+        },
+        inFlightMaxPartBytes: {
+          label: 'Max part bytes',
+          description: 'Maximum bytes allowed for a single in-flight snapshot part.',
+        },
+        inFlightMaxPartCount: {
+          label: 'Max part count',
+          description: 'Maximum number of parts allowed in an in-flight snapshot.',
+        },
+        inFlightMaxRevisionBytes: {
+          label: 'Max revision bytes',
+          description: 'Maximum bytes allowed for a single in-flight snapshot revision.',
+        },
+        inFlightMaxAggregateGroups: {
+          label: 'Max aggregate groups',
+          description: 'Maximum number of aggregation groups in in-flight snapshots.',
+        },
+        inFlightMaxDetails: {
+          label: 'Max details',
+          description: 'Maximum number of detail entries kept in in-flight snapshots.',
+        },
+        inFlightMaxStringBytes: {
+          label: 'Max string bytes',
+          description: 'Maximum bytes allowed for a single string field in in-flight snapshots.',
+        },
+        sessionAffinity: {
+          label: 'Session affinity',
+          description: 'Route the same session to the same credential when possible.',
+        },
+        sessionAffinityTtl: {
+          label: 'Session affinity TTL',
+          description:
+            'Validity duration of session affinity bindings (Go duration). Empty restores the backend default.',
+          placeholder: 'Default 1h',
+        },
+        sessionAffinitySubagents: {
+          label: 'Subagent session affinity',
+          description: 'Include subagent requests in session affinity routing.',
+        },
+        streamingKeepaliveSeconds: {
+          label: 'Stream keepalive interval (seconds)',
+          description:
+            'Keepalive send interval for streaming responses in seconds. 0 lets the backend default apply.',
+        },
+        streamingSendKeepaliveBeforeFt: {
+          label: 'Send keepalive before first token',
+          description:
+            'Start sending streaming keepalive heartbeats to the client before the first upstream token arrives.',
+        },
+        streamingBootstrapRetries: {
+          label: 'Stream bootstrap retries',
+          description: 'Retries allowed during the bootstrap phase of a streaming request.',
+        },
+        passthroughHeaders: {
+          label: 'Passthrough client headers',
+          description: 'Forward client request headers to the upstream.',
+        },
+        nonstreamKeepaliveInterval: {
+          label: 'Non-stream keepalive interval (seconds)',
+          description:
+            'Keepalive interval for non-streaming requests in seconds. 0 lets the backend default apply.',
+        },
+        pprofEnable: {
+          label: 'Enable pprof',
+          description:
+            'Expose the Go pprof diagnostics endpoint. Enable only while troubleshooting.',
+        },
+        pprofAddr: {
+          label: 'pprof listen address',
+          description: 'Listen address of the pprof diagnostics server.',
+          placeholder: '127.0.0.1:6060',
+        },
+        redisUsageQueueRetentionSeconds: {
+          label: 'Redis usage queue retention (seconds)',
+          description: 'Seconds usage events are retained in the Redis queue (0–3600).',
+        },
+        upstreamCodexDisableCloaking: {
+          label: 'Disable Codex cloaking',
+          description: 'Stop applying client cloaking to Codex upstream requests.',
+        },
+        upstreamCodexStreamBootstrapBuffering: {
+          label: 'Codex stream bootstrap buffering',
+          description:
+            'Buffer the bootstrap phase of Codex streaming responses to reduce truncated streams.',
+        },
+        upstreamCodexStreamBootstrapTimeout: {
+          label: 'Codex stream bootstrap timeout',
+          description:
+            'Maximum wait for the Codex streaming bootstrap phase (Go duration). 0 means no limit.',
+          placeholder: '0 means no limit',
+        },
+        upstreamCodexOrphanDelegationCompatibility: {
+          label: 'Orphan delegation compatibility',
+          description: 'Accept Codex orphan delegation response shapes.',
+        },
+        upstreamCodexModelLevelCooling: {
+          label: 'Codex model-level cooling',
+          description: 'Cool down Codex credentials independently per model.',
+        },
+        upstreamCodexResponseSteering: {
+          label: 'Codex response steering',
+          description: 'Allow steering directives on Codex responses.',
+        },
+        clientCodexOptimizeMultiAgentV2: {
+          label: 'Multi-agent optimization V2',
+          description: 'Apply V2 optimizations to Codex multi-agent requests from the client.',
+        },
+        upstreamClaudeModelLevelCooling: {
+          label: 'Claude model-level cooling',
+          description: 'Cool down Claude credentials independently per model.',
+        },
+        upstreamClaudeToolSearch: {
+          label: 'Claude tool search',
+          description: 'Enable the tool search capability on the Claude upstream.',
+        },
+        upstreamClaudeDisableCloakMode: {
+          label: 'Disable Claude cloak mode',
+          description: 'Turn off cloak mode on the Claude upstream.',
+        },
+        upstreamClaudeDisableCloakingModelList: {
+          label: 'Disable cloaking model list',
+          description: 'Stop sending the cloaking model list to the upstream.',
+        },
+        upstreamClaudeHeaderUserAgent: {
+          label: 'Claude User-Agent',
+          description:
+            'Default User-Agent header sent to the Claude upstream. Empty uses the backend default.',
+        },
+        upstreamClaudeHeaderPackageVersion: {
+          label: 'Claude package version header',
+          description:
+            'Default package-version header sent to the Claude upstream. Empty uses the backend default.',
+        },
+        upstreamClaudeHeaderRuntimeVersion: {
+          label: 'Claude runtime version header',
+          description:
+            'Default runtime-version header sent to the Claude upstream. Empty uses the backend default.',
+        },
+        upstreamClaudeHeaderOs: {
+          label: 'Claude OS header',
+          description:
+            'Default os header sent to the Claude upstream. Empty uses the backend default.',
+        },
+        upstreamClaudeHeaderArch: {
+          label: 'Claude arch header',
+          description:
+            'Default arch header sent to the Claude upstream. Empty uses the backend default.',
+        },
+        upstreamClaudeHeaderTimeout: {
+          label: 'Claude timeout header',
+          description:
+            'Default timeout header sent to the Claude upstream. Empty uses the backend default.',
+        },
+        upstreamClaudeHeaderTimezone: {
+          label: 'Claude timezone header',
+          description:
+            'Default timezone header sent to the Claude upstream. Empty uses the backend default.',
+        },
+        upstreamClaudeHeaderStabilizeDeviceProfile: {
+          label: 'Stabilize device profile',
+          description:
+            'Control whether Claude device profile headers stay stable. Unset lets the backend default decide.',
+        },
+        upstreamXaiInjectXSearch: {
+          label: 'xAI inject X Search',
+          description: 'Inject X Search capability into xAI upstream requests.',
+        },
+        oauthAuthDir: {
+          label: 'OAuth auth directory',
+          description: 'Storage directory for OAuth file credentials.',
+          placeholder: '~/.cli-proxy-api',
+        },
+        oauthCodexHeaderUserAgent: {
+          label: 'Codex User-Agent',
+          description:
+            'Default User-Agent header sent to the Codex OAuth upstream. Empty uses the backend default.',
+        },
+        oauthCodexHeaderBetaFeatures: {
+          label: 'Codex beta features header',
+          description:
+            'beta-features header sent to the Codex OAuth upstream. Empty uses the backend default.',
+        },
+        liveMediaRelayEnabled: {
+          label: 'Enable live media relay',
+          description: 'Enable the Codex live media (WebRTC) relay.',
+        },
+        liveMediaRelayMaxSessions: {
+          label: 'Max relay sessions',
+          description:
+            'Maximum concurrent sessions for the live media relay. 0 uses the backend default of 32.',
+        },
+        liveMediaRelayDisablePrivateRemoteIps: {
+          label: 'Disable private remote IPs',
+          description: 'Reject private remote IPs in the live media relay.',
+        },
+        liveMediaRelayPublicIp: {
+          label: 'Public IP',
+          description: 'Public IP advertised by the relay. Empty auto-detects it.',
+        },
+        liveMediaRelayUdpPortMin: {
+          label: 'UDP port range min',
+          description:
+            'Lower bound of the UDP port range used by the relay. Must be configured together with the upper bound.',
+        },
+        liveMediaRelayUdpPortMax: {
+          label: 'UDP port range max',
+          description:
+            'Upper bound of the UDP port range used by the relay. Must be configured together with the lower bound.',
+        },
+        liveMediaRelayIceServersJson: {
+          label: 'ICE servers',
+          description:
+            'JSON array of STUN/TURN servers. Note: reading back JSON masks username/credential; only entries whose urls are unchanged keep their existing credentials. Changing urls requires re-entering the credentials.',
+        },
+        devinSensitiveWordsJson: {
+          label: 'Devin sensitive words obfuscation',
+          description:
+            'Insert zero-width spaces into matching Devin system prompts to reduce exact keyword detection upstream.',
+        },
+        oauthRequestScopedErrorsJson: {
+          label: 'Request-scoped error rules',
+          description:
+            'Error handling rules keyed by provider. Each rule has the shape {status, match[], match-regexr[], action}.',
+          placeholder: '{}',
+        },
+        antigravityCredits: {
+          label: 'Antigravity credits',
+          description: 'Enable Antigravity credits billing behavior.',
+        },
+        antigravitySignatureCacheEnabled: {
+          label: 'Signature cache',
+          description:
+            'Control Antigravity request signature caching. Unset lets the backend default decide.',
+        },
+        antigravitySignatureBypassStrict: {
+          label: 'Strict signature bypass',
+          description:
+            'Control strict bypass behavior for Antigravity signature verification. Unset lets the backend default decide.',
+        },
+        antigravityConnPoolEnabled: {
+          label: 'Connection pool',
+          description: 'Use a persistent connection pool for the Antigravity upstream.',
+        },
+        antigravityConnPoolIdleTimeout: {
+          label: 'Connection pool idle timeout',
+          description:
+            'Maximum retention of idle connections (Go duration), capped at 210s. Empty uses the backend default.',
+          placeholder: 'Capped at 210s',
+        },
+        antigravityConnPoolMaxIdleConnsPerHost: {
+          label: 'Max idle connections per host',
+          description: 'Maximum idle connections the pool keeps per host.',
+        },
+        multimediaDisableImageGeneration: {
+          label: 'Image generation mode',
+          description: 'Control how image generation requests are handled.',
+          options: {
+            false: 'Keep enabled (false)',
+            true: 'Disabled (true)',
+            chat: 'Convert to chat (chat)',
+            passthrough: 'Passthrough (passthrough)',
+          },
+        },
+        multimediaGptImage2BaseModel: {
+          label: 'GPT Image 2 base model',
+          description: 'Base model used for image generation rewriting.',
+          placeholder: 'Default gpt-5.4-mini',
+        },
+        multimediaVideoResultAuthCacheTtl: {
+          label: 'Video result auth cache TTL',
+          description:
+            'Cache duration for video result authorization data (Go duration). Empty restores the backend default.',
+          placeholder: 'Default 3h',
+        },
       },
       routingStrategies: {
         'round-robin': 'Round robin',
+        'weighted-round-robin': 'Weighted round robin',
         'fill-first': 'Fill first',
         unknown: 'Unknown',
+      },
+      nullableBoolean: {
+        unset: 'Unset (default)',
+        enabled: 'Enabled',
+        disabled: 'Disabled',
+      },
+      stringList: {
+        serverAllowHostJson: {
+          placeholder: 'example.com\nadmin.example.com',
+          hint: 'One allowed Host per line. Empty lines are dropped when saving.',
+          count: '{{count}} Hosts configured',
+        },
+        serverTrustedProxiesJson: {
+          placeholder: '10.0.0.0/8\n192.168.1.10',
+          hint: 'One proxy IP or CIDR per line. Empty lines are dropped when saving.',
+          count: '{{count}} trusted proxies configured',
+        },
+        discoverySubtypesJson: {
+          placeholder: '_home\n_management',
+          hint: 'One mDNS subtype per line. Empty lines are dropped when saving.',
+          count: '{{count}} subtypes configured',
+        },
+        discoveryInterfacesIncludeJson: {
+          placeholder: 'en0\neth0',
+          hint: 'One interface name per line. Empty lines are dropped when saving.',
+          count: '{{count}} interfaces included',
+        },
+        discoveryInterfacesExcludeJson: {
+          placeholder: 'utun0\nawdl0',
+          hint: 'One interface name per line. Empty lines are dropped when saving.',
+          count: '{{count}} interfaces excluded',
+        },
+        devinSensitiveWordsJson: {
+          placeholder: 'proxy\nAPI',
+          hint: 'One sensitive word per line. Matching is case-insensitive; empty lines are dropped when saving.',
+          count: '{{count}} sensitive words configured',
+        },
       },
       proxyPools: {
         title: 'Proxy pool',
@@ -3439,6 +4341,7 @@ export const en = {
           channel: 'Channel',
           name: 'Upstream model',
           alias: 'Client alias',
+          displayName: 'Display name',
           fork: 'Fork',
           forceMapping: 'force-mapping',
           actions: 'Actions',
@@ -3447,6 +4350,7 @@ export const en = {
           channel: 'Auth channel key, such as claude, gemini, or codex.',
           name: 'Model ID actually sent to the upstream provider.',
           alias: 'Model alias that clients can request.',
+          displayName: 'Optional readable name shown in model catalogs (display-name).',
           fork: 'Advanced option. The API only defines this as fork alias behavior; leave it off unless you need it.',
           forceMapping:
             'When enabled, response model fields are written back as the mapped upstream model name.',
@@ -3455,6 +4359,7 @@ export const en = {
           channel: 'claude',
           name: 'claude-sonnet-4',
           alias: 'sonnet',
+          displayName: 'Claude Sonnet 4',
         },
       },
       oauthExcluded: {
@@ -3478,6 +4383,7 @@ export const en = {
           kimi: 'Kimi',
           antigravity: 'Antigravity',
           xai: 'xAI',
+          meta: 'Meta',
         },
       },
       diff: {
@@ -3648,6 +4554,7 @@ export const en = {
         },
         customFrom: 'Start time',
         customTo: 'End time',
+        dateRangeInvalid: 'Start time must not be after end time.',
         eventType: 'Event type',
         anyEventType: 'All event types',
         anyProvider: 'All providers',
@@ -3663,7 +4570,6 @@ export const en = {
           'Latency range must use non-negative integers, and minimum latency must not exceed maximum latency.',
         sort: 'Sort',
         advanced: 'Advanced filters',
-        hideAdvanced: 'Hide advanced filters',
         ranges: {
           '4h': 'Last 4 hours',
           '12h': 'Last 12 hours',
@@ -3698,6 +4604,8 @@ export const en = {
         unknown: 'Unknown',
         unknownRequest: 'Unknown request',
         localHome: 'Local Home',
+        streaming: 'Stream',
+        nonStreaming: 'Non-stream',
         yes: 'Yes',
         no: 'No',
       },
@@ -3724,10 +4632,11 @@ export const en = {
           model: 'Model',
           runtime: 'Home node',
           client: 'User',
+          userAgent: 'User-Agent',
           credential: 'Credential',
           tokens: 'Tokens',
           latency: 'Latency',
-          cost: 'Cost',
+          cost: 'Cost (credits)',
           request: 'Request ID',
           error: 'Error',
           actions: 'Actions',
@@ -3739,6 +4648,7 @@ export const en = {
         errorTitle: 'Request details failed to load',
         requestLogUnavailable: 'This request has no downloadable request log.',
         tokens: 'Tokens',
+        toolUsage: 'Tool usage',
         error: 'Error summary',
         payload: 'Payload summary',
         logExcerpt: 'Log excerpt',
@@ -3759,6 +4669,7 @@ export const en = {
           cpa: 'CPA node',
           user: 'User',
           clientKey: 'Client access key',
+          userAgent: 'User-Agent',
           credential: 'Credential',
           latency: 'Latency',
           cost: 'Cost',
@@ -3771,6 +4682,56 @@ export const en = {
           cacheReadTokens: 'Cache read',
           cacheCreationTokens: 'Cache write',
           totalTokens: 'Total',
+        },
+        costBreakdown: {
+          total: 'Total charge',
+          input: 'Input tokens',
+          imageInput: 'Image input',
+          audioInput: 'Audio input',
+          videoInput: 'Video input',
+          fileInput: 'File input',
+          cacheRead: 'Cache read',
+          cachedText: 'Cached text',
+          imageCacheRead: 'Image cache read',
+          audioCacheRead: 'Audio cache read',
+          cacheWrite: 'Cache write',
+          cacheWrite30m: 'Cache write (30m)',
+          cacheWrite1h: 'Cache write (1h)',
+          cacheWrite12h: 'Cache write (12h)',
+          output: 'Output tokens',
+          reasoning: 'Reasoning tokens',
+          imageOutput: 'Image output',
+          audioOutput: 'Audio output',
+          videoOutput: 'Video output',
+          webSearch: 'Web search',
+          webSearchQuery: 'Search queries',
+          webFetch: 'Web fetch',
+          xSearch: 'X search',
+          codeExecution: 'Code execution',
+          fileSearch: 'File search',
+          documentSearch: 'Document search',
+          mcp: 'MCP tool',
+          googleMaps: 'Google Maps',
+          sourcesUsed: 'Sources used',
+          serverTools: 'Server tools',
+          images: 'Images',
+          requestFee: 'Per-request fee',
+          effortMultiplier: 'Effort multiplier',
+          billingMultiplier: 'User multiplier',
+          matchedRule: 'Matched rule',
+        },
+        toolFields: {
+          webSearchCalls: 'Web search',
+          webSearchQueries: 'Search queries',
+          webFetchCalls: 'Web fetch',
+          xSearchCalls: 'X search',
+          codeExecutionCalls: 'Code execution',
+          fileSearchCalls: 'File search',
+          documentSearchCalls: 'Document search',
+          mcpCalls: 'MCP tool',
+          googleMapsChunks: 'Google Maps',
+          numSourcesUsed: 'Sources used',
+          imageGenerationCalls: 'Image generation',
         },
         payloadFields: {
           method: 'Method',
@@ -3969,7 +4930,6 @@ export const en = {
         minAmount: 'Min spend',
         maxAmount: 'Max spend',
         advanced: 'Advanced filters',
-        hideAdvanced: 'Hide advanced filters',
         searchPlaceholder: 'Search request / user / model',
         minLatencyPlaceholder: 'Min latency ms',
         maxLatencyPlaceholder: 'Max latency ms',
@@ -3978,6 +4938,7 @@ export const en = {
         rangeInvalid: 'Min must not exceed max.',
         customFrom: 'Start date',
         customTo: 'End date',
+        dateRangeInvalid: 'Start date must not be after end date.',
         anyProvider: 'All providers',
         anyModel: 'All models',
         anyCredentialType: 'All credential types',
@@ -4239,7 +5200,7 @@ export const en = {
           clientKey: 'Client key',
           clientIp: 'Client IP',
           credential: 'Execution credential',
-          authIndex: 'Auth index',
+          authIndex: 'Credential index',
           model: 'Model',
           endpoint: 'Endpoint',
           latency: 'Latency',
@@ -4410,6 +5371,8 @@ export const en = {
         emptyPage: 'Go back one page or sync again.',
         latest: 'Latest log: {{time}}',
         latestUnavailable: 'Log timestamp unavailable',
+        searchUnsupported:
+          'This backend does not support log content search, so the search filter was not applied. Upgrade CLIProxyAPIHome and try again.',
         columns: {
           time: 'Time',
           level: 'Level',
@@ -4434,6 +5397,7 @@ export const en = {
             requestId: 'Request ID',
             homeIp: 'Home IP',
             clientIp: 'Client IP',
+            search: 'Log content',
           },
           levels: {
             all: 'All levels',
@@ -4447,8 +5411,12 @@ export const en = {
         pagination: {
           range: '{{start}}-{{end}} of {{total}}',
           pageSize: 'Rows per page',
+          first: 'First',
           previous: 'Previous',
           next: 'Next',
+          pageIndicator: 'Page {{page}} of {{pages}}',
+          jumpInput: 'Page number',
+          jump: 'Go',
         },
         detail: {
           title: 'Log details',
@@ -4734,10 +5702,38 @@ export const en = {
         syncing: 'Syncing',
         clearFilters: 'Clear filters',
         details: 'Details',
+        configure: 'Configure plugin',
         install: 'Install',
         update: 'Update',
         uninstall: 'Uninstall',
         manageAuth: 'Manage store auth',
+      },
+      config: {
+        loading: 'Loading plugin configuration',
+        useDefault: 'Use plugin default',
+        save: 'Save changes',
+        title: 'Configure {{name}}',
+        enabledLabel: 'Enable plugin',
+        enabledDescription: 'Control whether this plugin is enabled at runtime.',
+        priorityLabel: 'Priority (priority)',
+        priorityDescription: 'Integer value that controls execution order across plugins.',
+        loadInHomeLabel: 'Load in Home process (load-in-home)',
+        loadInHomeDescription: 'Allow this plugin to load inside the Home control-plane process.',
+        declaredFieldsTitle: 'Declared plugin parameters',
+        customParamsTitle: 'Custom parameters',
+        customParamsDescription:
+          'Edit extra plugin parameters. Values accept JSON; quote strings such as "123" to keep their type.',
+        addParam: 'Add parameter',
+        removeParam: 'Remove parameter',
+        paramValuePlaceholder: 'Value (JSON or text)',
+        saved: 'Saved configuration for {{name}}',
+        validation: {
+          duplicateKey: 'Parameter {{name}} is already configured.',
+          priorityInvalid: 'Priority must be an integer.',
+          paramInvalid: 'Parameter {{name}} has an invalid value.',
+          keyRequired: 'Enter a parameter key when a parameter value is set.',
+          reservedKey: '{{name}} is a reserved field; use the dedicated controls above.',
+        },
       },
       auth: {
         title: 'Store authentication',
